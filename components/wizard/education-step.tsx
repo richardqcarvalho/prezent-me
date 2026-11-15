@@ -6,7 +6,13 @@ import type { EducationDraft } from "@/components/wizard/draft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MonthYearSelect } from "@/components/ui/month-year-select";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EDUCATION_LEVELS } from "@/lib/constants";
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -71,21 +77,23 @@ export function EducationStep({
                 maxLength={150}
                 aria-label="Degree"
               />
-              <NativeSelect
+              <Select
                 name="level"
-                value={row.level}
-                onChange={(e) => updateRow(index, { level: e.target.value })}
-                aria-label="Education level"
+                items={LEVEL_LABELS}
+                value={row.level || null}
+                onValueChange={(value) => updateRow(index, { level: value ?? "" })}
               >
-                <option value="" disabled>
-                  Level
-                </option>
-                {EDUCATION_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {LEVEL_LABELS[level]}
-                  </option>
-                ))}
-              </NativeSelect>
+                <SelectTrigger className="w-full" aria-label="Education level">
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EDUCATION_LEVELS.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {LEVEL_LABELS[level]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Input
               name="university"

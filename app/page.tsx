@@ -1,5 +1,3 @@
-import { LogOutIcon } from "lucide-react";
-
 import { getSessionUser } from "@/lib/session";
 import {
   getLatestSetup,
@@ -8,11 +6,11 @@ import {
   getUserExperiences,
   getUserLanguages,
 } from "@/lib/users";
-import { signInWithGitHub, signOut } from "@/app/actions/auth";
+import { signInWithGitHub } from "@/app/actions/auth";
+import { Header } from "@/components/header";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 function GitHubIcon() {
   return (
@@ -27,22 +25,25 @@ export default async function Home() {
 
   if (!sessionUser) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle className="text-xl">prezentme</CardTitle>
-            <CardDescription>Sign in to set up your profile.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={signInWithGitHub}>
-              <Button type="submit" className="w-full">
-                <GitHubIcon data-icon="inline-start" />
-                Sign in with GitHub
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </main>
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <main className="flex flex-1 items-center justify-center p-6">
+          <Card className="w-full max-w-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">Prezentme</CardTitle>
+              <CardDescription>Sign in to set up your profile.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form action={signInWithGitHub}>
+                <Button type="submit" className="w-full">
+                  <GitHubIcon data-icon="inline-start" />
+                  Sign in with GitHub
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
     );
   }
 
@@ -70,24 +71,18 @@ export default async function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
-      <div className="flex w-full max-w-2xl items-center justify-between">
-        <p className="text-sm text-muted-foreground">Signed in as @{user.githubLogin}</p>
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" size="sm">
-            <LogOutIcon data-icon="inline-start" />
-            Sign out
-          </Button>
-        </form>
-      </div>
-      <OnboardingWizard
-        user={user}
-        languages={languages}
-        education={education}
-        experiences={experiences}
-        setup={setup}
-        serverTimestamps={serverTimestamps}
-      />
-    </main>
+    <div className="flex min-h-screen flex-col">
+      <Header user={user} />
+      <main className="flex flex-1">
+        <OnboardingWizard
+          user={user}
+          languages={languages}
+          education={education}
+          experiences={experiences}
+          setup={setup}
+          serverTimestamps={serverTimestamps}
+        />
+      </main>
+    </div>
   );
 }

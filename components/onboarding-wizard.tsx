@@ -36,12 +36,12 @@ import { SetupStep } from "@/components/wizard/setup-step";
 import type { Education, Experience, Language, Setup, User } from "@/lib/db/schema";
 
 const STEPS = [
-  { id: "profile", title: "Profile", description: "Who you are" },
-  { id: "languages", title: "Language", description: "What you speak" },
-  { id: "education", title: "Education", description: "What you studied" },
-  { id: "experiences", title: "Experience", description: "Where you worked" },
-  { id: "setup", title: "Setup", description: "What we generate" },
-] as const satisfies ReadonlyArray<{ id: WizardStepId; title: string; description: string }>;
+  { id: "profile", title: "Profile" },
+  { id: "languages", title: "Language" },
+  { id: "education", title: "Education" },
+  { id: "experiences", title: "Experience" },
+  { id: "setup", title: "Setup" },
+] as const satisfies ReadonlyArray<{ id: WizardStepId; title: string }>;
 
 const SYNC_DELAY_MS = 800;
 
@@ -191,13 +191,22 @@ export function OnboardingWizard({
   const updateSetup = (patch: Partial<SetupDraft>) =>
     update("setup", (d) => ({ ...d, setup: { ...d.setup, ...patch } }));
 
+  function goToStep(nextStep: number) {
+    if (nextStep === step) return;
+    const currentId = STEPS[step].id;
+    if (syncTimers.current.has(currentId)) {
+      flushSync(currentId);
+    }
+    setStep(nextStep);
+  }
+
   function goNext(id: WizardStepId, nextStep: number) {
     flushSync(id);
     setStep(nextStep);
   }
 
   function goBack(nextStep: number) {
-    setStep(nextStep);
+    goToStep(nextStep);
   }
 
   function finish() {
@@ -210,72 +219,95 @@ export function OnboardingWizard({
   }
 
   return (
-    <div className="grid w-full max-w-2xl gap-6">
-      <nav aria-label="Progress" className="flex items-center gap-2">
-        {STEPS.map((s, i) => (
-          <div key={s.title} className="flex flex-1 flex-col items-center gap-1">
-            <div
-              aria-current={i === step ? "step" : undefined}
-              className={cn(
-                "flex size-6 items-center justify-center rounded-full text-xs font-medium ring-1 ring-foreground/10 transition-colors",
-                i < step && "bg-primary text-primary-foreground",
-                i === step && "bg-primary text-primary-foreground ring-primary",
-                i > step && "bg-muted text-muted-foreground",
-              )}
-            >
-              {i + 1}
-            </div>
-            <span className={cn("text-xs", i === step ? "font-medium" : "text-muted-foreground")}>
-              {s.title}
-            </span>
-          </div>
-        ))}
-      </nav>
+    <div className="flex w-full flex-1 flex-col md:flex-row">
+      <aside className="w-full border-b bg-sidebar text-sidebar-foreground md:w-64 md:shrink-0 md:border-r md:border-b-0">
+        <nav aria-label="Progress" className="flex gap-1 overflow-x-auto p-3 md:flex-col md:p-4">
+          {STEPS.map((s, i) => {
+            const isActive = i === step;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => goToStep(i)}
+                aria-current={isActive ? "step" : undefined}
+                className={cn(
+                  "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ring-1 transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground ring-primary"
+                      : i < step
+                        ? "bg-primary/15 text-foreground ring-foreground/15"
+                        : "bg-muted text-muted-foreground ring-foreground/10",
+                  )}
+                >
+                  {i + 1}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    isActive && "text-sidebar-accent-foreground",
+                  )}
+                >
+                  {s.title}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
 
-      <div className="grid gap-1">
-        <h1 className="text-lg font-medium">{STEPS[step].title}</h1>
-        <p className="text-sm text-muted-foreground">{STEPS[step].description}</p>
+      <div className="flex flex-1 justify-center p-6 md:p-10">
+        <div className="flex w-full max-w-xl flex-col gap-6">
+          <h1 className="text-lg font-medium">{STEPS[step].title}</h1>
+
+          {step === 0 && (
+            <ProfileStep
+              value={draft.profile}
+              onChange={patchProfile}
+              onNext={() => goNext("profile", 1)}
+            />
+          )}
+          {step === 1 && (
+            <LanguagesStep
+              rows={draft.languages}
+              onChange={updateLanguages}
+              onBack={() => goBack(0)}
+              onNext={() => goNext("languages", 2)}
+            />
+          )}
+          {step === 2 && (
+            <EducationStep
+              rows={draft.education}
+              onChange={updateEducation}
+              onBack={() => goBack(1)}
+              onNext={() => goNext("education", 3)}
+            />
+          )}
+          {step === 3 && (
+            <ExperienceStep
+              rows={draft.experiences}
+              onChange={updateExperiences}
+              onBack={() => goBack(2)}
+              onNext={() => goNext("experiences", 4)}
+            />
+          )}
+          {step === 4 && (
+            <SetupStep
+              value={draft.setup}
+              onChange={updateSetup}
+              onBack={() => goBack(3)}
+              onFinish={finish}
+            />
+          )}
+        </div>
       </div>
-
-      {step === 0 && (
-        <ProfileStep
-          value={draft.profile}
-          onChange={patchProfile}
-          onNext={() => goNext("profile", 1)}
-        />
-      )}
-      {step === 1 && (
-        <LanguagesStep
-          rows={draft.languages}
-          onChange={updateLanguages}
-          onBack={() => goBack(0)}
-          onNext={() => goNext("languages", 2)}
-        />
-      )}
-      {step === 2 && (
-        <EducationStep
-          rows={draft.education}
-          onChange={updateEducation}
-          onBack={() => goBack(1)}
-          onNext={() => goNext("education", 3)}
-        />
-      )}
-      {step === 3 && (
-        <ExperienceStep
-          rows={draft.experiences}
-          onChange={updateExperiences}
-          onBack={() => goBack(2)}
-          onNext={() => goNext("experiences", 4)}
-        />
-      )}
-      {step === 4 && (
-        <SetupStep
-          value={draft.setup}
-          onChange={updateSetup}
-          onBack={() => goBack(3)}
-          onFinish={finish}
-        />
-      )}
     </div>
   );
 }

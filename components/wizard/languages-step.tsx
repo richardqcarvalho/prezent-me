@@ -5,7 +5,13 @@ import { PlusIcon, TrashIcon } from "lucide-react";
 import type { LanguageDraft } from "@/components/wizard/draft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FLUENCY_LEVELS } from "@/lib/constants";
 
 const FLUENCY_LABELS: Record<string, string> = {
@@ -58,21 +64,23 @@ export function LanguagesStep({
               maxLength={50}
               aria-label="Language"
             />
-            <NativeSelect
+            <Select
               name="fluency"
-              value={row.fluency}
-              onChange={(e) => updateRow(index, { fluency: e.target.value })}
-              aria-label="Fluency"
+              items={FLUENCY_LABELS}
+              value={row.fluency || null}
+              onValueChange={(value) => updateRow(index, { fluency: value ?? "" })}
             >
-              <option value="" disabled>
-                Fluency
-              </option>
-              {FLUENCY_LEVELS.map((level) => (
-                <option key={level} value={level}>
-                  {FLUENCY_LABELS[level]}
-                </option>
-              ))}
-            </NativeSelect>
+              <SelectTrigger className="w-full" aria-label="Fluency">
+                <SelectValue placeholder="Fluency" />
+              </SelectTrigger>
+              <SelectContent>
+                {FLUENCY_LEVELS.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {FLUENCY_LABELS[level]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <Button
             type="button"

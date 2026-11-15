@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const MONTHS = [
   "January",
@@ -22,6 +28,11 @@ const MONTHS = [
 const FIRST_YEAR = 1950;
 const LAST_YEAR = new Date().getFullYear() + 1;
 const YEARS = Array.from({ length: LAST_YEAR - FIRST_YEAR + 1 }, (_, i) => LAST_YEAR - i);
+
+const MONTH_ITEMS = Object.fromEntries(
+  MONTHS.map((label, i) => [String(i + 1).padStart(2, "0"), label]),
+);
+const YEAR_ITEMS = Object.fromEntries(YEARS.map((y) => [String(y), String(y)]));
 
 type MonthYearSelectProps = {
   name: string;
@@ -56,36 +67,43 @@ export function MonthYearSelect({
     <div className="grid grid-cols-[1fr_auto] items-center gap-2">
       <input type="hidden" name={name} value={present ? "" : value} />
       <div className="grid grid-cols-2 gap-2">
-        <NativeSelect
-          value={month}
+        <Select
+          items={MONTH_ITEMS}
+          value={month || null}
           disabled={present}
-          onChange={(e) => commit(e.target.value, year)}
-          aria-label={`${label} month`}
+          onValueChange={(val) => commit(val ?? "", year)}
         >
-          <option value="" disabled>
-            Month
-          </option>
-          {MONTHS.map((label, i) => (
-            <option key={label} value={String(i + 1).padStart(2, "0")}>
-              {label}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          value={year}
+          <SelectTrigger className="w-full" aria-label={`${label} month`}>
+            <SelectValue placeholder="Month" />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS.map((monthLabel, i) => {
+              const monthVal = String(i + 1).padStart(2, "0");
+              return (
+                <SelectItem key={monthLabel} value={monthVal}>
+                  {monthLabel}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        <Select
+          items={YEAR_ITEMS}
+          value={year || null}
           disabled={present}
-          onChange={(e) => commit(month, e.target.value)}
-          aria-label={`${label} year`}
+          onValueChange={(val) => commit(month, val ?? "")}
         >
-          <option value="" disabled>
-            Year
-          </option>
-          {YEARS.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </NativeSelect>
+          <SelectTrigger className="w-full" aria-label={`${label} year`}>
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent>
+            {YEARS.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {onPresentChange && (
         <label className="flex cursor-pointer items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground">
