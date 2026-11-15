@@ -5,6 +5,7 @@ import {
   getUserEducation,
   getUserExperiences,
   getUserLanguages,
+  getUserProjects,
 } from "@/lib/users";
 import { signInWithGitHub } from "@/app/actions/auth";
 import { Header } from "@/components/header";
@@ -47,11 +48,12 @@ export default async function Home() {
     );
   }
 
-  const [user, languages, education, experiences, setup] = await Promise.all([
+  const [user, languages, education, experiences, projects, setup] = await Promise.all([
     getUserById(sessionUser.id),
     getUserLanguages(sessionUser.id),
     getUserEducation(sessionUser.id),
     getUserExperiences(sessionUser.id),
+    getUserProjects(sessionUser.id),
     getLatestSetup(sessionUser.id),
   ]);
 
@@ -67,6 +69,7 @@ export default async function Home() {
     languages: latest(languages),
     education: latest(education),
     experiences: latest(experiences),
+    projects: latest(projects),
     setup: setup?.updatedAt.getTime() ?? 0,
   };
 
@@ -79,6 +82,7 @@ export default async function Home() {
           languages={languages}
           education={education}
           experiences={experiences}
+          projects={projects}
           setup={setup}
           serverTimestamps={serverTimestamps}
         />

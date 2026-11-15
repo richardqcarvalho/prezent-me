@@ -23,11 +23,13 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileSt
   const lastName = (formData.get("lastName") as string)?.trim() || null;
   const location = (formData.get("location") as string)?.trim() || null;
   const role = (formData.get("role") as string)?.trim() || null;
+  const github = (formData.get("github") as string)?.trim() || null;
+  const linkedin = (formData.get("linkedin") as string)?.trim() || null;
 
   try {
     await db
       .update(users)
-      .set({ firstName, lastName, location, role, updatedAt: new Date() })
+      .set({ firstName, lastName, location, role, github, linkedin, updatedAt: new Date() })
       .where(eq(users.id, user.id));
 
     revalidatePath("/");

@@ -8,6 +8,8 @@ export const users = pgTable("users", {
   lastName: varchar("last_name", { length: 100 }),
   location: text("location"),
   role: varchar("role", { length: 100 }),
+  github: varchar("github", { length: 255 }),
+  linkedin: varchar("linkedin", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -64,6 +66,22 @@ export const experiences = pgTable(
   (t) => [index("experiences_user_id_idx").on(t.userId)],
 );
 
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 150 }).notNull(),
+    link: text("link"),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("projects_user_id_idx").on(t.userId)],
+);
+
 export const setups = pgTable(
   "setups",
   {
@@ -88,5 +106,7 @@ export type Education = typeof education.$inferSelect;
 export type NewEducation = typeof education.$inferInsert;
 export type Experience = typeof experiences.$inferSelect;
 export type NewExperience = typeof experiences.$inferInsert;
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;
 export type Setup = typeof setups.$inferSelect;
 export type NewSetup = typeof setups.$inferInsert;

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { education, experiences, languages, setups } from "@/lib/db/schema";
+import { education, experiences, languages, projects, setups } from "@/lib/db/schema";
 import { isEducationLevel, isFluencyLevel } from "@/lib/constants";
 import { getSessionUser } from "@/lib/session";
 
@@ -175,6 +175,51 @@ export async function saveExperiences(formData: FormData): Promise<ActionState> 
     return { success: true };
   } catch (error) {
     console.error("Failed to save experiences:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+export async function saveProjects(formData: FormData): Promise<ActionState> {
+  const userId = await requireUserId();
+  if (!userId) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const names = formData.getAll("name").map((v) => String(v).trim());
+  const links = formData.getAll("link").map((v) => String(v).trim());
+  const descriptions = formData.getAll("description").map((v) => String(v).trim());
+
+  const rows = names
+    .map((name, i) => ({
+      name,
+      link: links[i] || null,
+      description: descriptions[i] || null,
+    }))
+    .filter((row) => row.name !== "" || row.link !== null || row.description !== null);
+
+  const invalid = rows.find((row) => row.name === "");
+  if (invalid) {
+    return {
+      success: false,
+      error: "Please fill in the project name for each project entry.",
+    };
+  }
+
+  try {
+    await db.batch([
+      db.delete(projects).where(eq(projects.userId, userId)),
+      ...(rows.length > 0
+        ? [
+            db
+              .insert(projects)
+              .values(rows.map((row) => ({ userId, ...row, updatedAt: new Date() }))),
+          ]
+        : []),
+    ]);
+    revalidate();
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save projects:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }

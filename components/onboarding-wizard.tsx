@@ -10,6 +10,7 @@ import {
   saveEducation,
   saveExperiences,
   saveLanguages,
+  saveProjects,
   saveSetup,
   type ActionState,
 } from "@/app/actions/wizard";
@@ -25,6 +26,7 @@ import {
   type ExperienceDraft,
   type LanguageDraft,
   type ProfileDraft,
+  type ProjectDraft,
   type SetupDraft,
   type WizardDraft,
   type WizardStepId,
@@ -32,14 +34,16 @@ import {
 import { ExperienceStep } from "@/components/wizard/experience-step";
 import { LanguagesStep } from "@/components/wizard/languages-step";
 import { ProfileStep } from "@/components/wizard/profile-step";
+import { ProjectsStep } from "@/components/wizard/projects-step";
 import { SetupStep } from "@/components/wizard/setup-step";
-import type { Education, Experience, Language, Setup, User } from "@/lib/db/schema";
+import type { Education, Experience, Language, Project, Setup, User } from "@/lib/db/schema";
 
 const STEPS = [
   { id: "profile", title: "Profile" },
   { id: "languages", title: "Language" },
   { id: "education", title: "Education" },
   { id: "experiences", title: "Experience" },
+  { id: "projects", title: "Projects" },
   { id: "setup", title: "Setup" },
 ] as const satisfies ReadonlyArray<{ id: WizardStepId; title: string }>;
 
@@ -50,6 +54,7 @@ const ACTIONS: Record<WizardStepId, (formData: FormData) => Promise<ActionState>
   languages: saveLanguages,
   education: saveEducation,
   experiences: saveExperiences,
+  projects: saveProjects,
   setup: saveSetup,
 };
 
@@ -58,6 +63,7 @@ type OnboardingWizardProps = {
   languages: Language[];
   education: Education[];
   experiences: Experience[];
+  projects: Project[];
   setup: Setup | null;
   /** Server-side last-modified (ms epoch) per step, for last-writer-wins restore. */
   serverTimestamps: Record<WizardStepId, number>;
@@ -68,6 +74,7 @@ export function OnboardingWizard({
   languages,
   education,
   experiences,
+  projects,
   setup,
   serverTimestamps,
 }: OnboardingWizardProps) {
@@ -79,6 +86,8 @@ export function OnboardingWizard({
       lastName: user.lastName ?? "",
       location: user.location ?? "",
       role: user.role ?? "",
+      github: user.github ?? "",
+      linkedin: user.linkedin ?? "",
     },
     languages: languages.map((l) => ({ language: l.language, fluency: l.fluency })),
     education: education.map((e) => ({
@@ -97,6 +106,11 @@ export function OnboardingWizard({
       endDate: e.endDate ?? "",
       present: false,
       technologies: (e.technologies ?? []).join(", "),
+    })),
+    projects: projects.map((p) => ({
+      name: p.name,
+      link: p.link ?? "",
+      description: p.description ?? "",
     })),
     setup: { name: setup?.name ?? "", description: setup?.description ?? "" },
   }));
@@ -188,6 +202,8 @@ export function OnboardingWizard({
     update("education", (d) => ({ ...d, education: rows }));
   const updateExperiences = (rows: ExperienceDraft[]) =>
     update("experiences", (d) => ({ ...d, experiences: rows }));
+  const updateProjects = (rows: ProjectDraft[]) =>
+    update("projects", (d) => ({ ...d, projects: rows }));
   const updateSetup = (patch: Partial<SetupDraft>) =>
     update("setup", (d) => ({ ...d, setup: { ...d.setup, ...patch } }));
 
@@ -299,10 +315,18 @@ export function OnboardingWizard({
             />
           )}
           {step === 4 && (
+            <ProjectsStep
+              rows={draft.projects}
+              onChange={updateProjects}
+              onBack={() => goBack(3)}
+              onNext={() => goNext("projects", 5)}
+            />
+          )}
+          {step === 5 && (
             <SetupStep
               value={draft.setup}
               onChange={updateSetup}
-              onBack={() => goBack(3)}
+              onBack={() => goBack(4)}
               onFinish={finish}
             />
           )}

@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ProfileDraft } from "@/components/wizard/draft";
 
+const GITHUB_PREFIX = "https://github.com/";
+const LINKEDIN_PREFIX = "https://linkedin.com/in/";
+
+function stripPrefix(value: string, pattern: RegExp) {
+  return value.replace(pattern, "");
+}
+
+const GITHUB_PATTERN = /^(https?:\/\/)?(www\.)?github\.com\//i;
+const LINKEDIN_PATTERN = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\//i;
+
 type ProfileFormProps = {
   value: ProfileDraft;
   onChange: (patch: Partial<ProfileDraft>) => void;
@@ -13,6 +23,9 @@ type ProfileFormProps = {
 };
 
 export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: ProfileFormProps) {
+  const githubHandle = stripPrefix(value.github, GITHUB_PATTERN);
+  const linkedinHandle = stripPrefix(value.linkedin, LINKEDIN_PATTERN);
+
   return (
     <form
       onSubmit={(e) => {
@@ -58,6 +71,42 @@ export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: P
           onChange={(e) => onChange({ role: e.target.value })}
           placeholder="e.g. Frontend Engineer"
         />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-2">
+          <Label htmlFor="github">GitHub</Label>
+          <div className="flex h-8 w-full min-w-0 items-center rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 md:text-sm dark:bg-input/30">
+            <span className="shrink-0 text-muted-foreground select-none">github.com/</span>
+            <input
+              id="github"
+              value={githubHandle}
+              onChange={(e) => {
+                const handle = stripPrefix(e.target.value, GITHUB_PATTERN);
+                onChange({ github: handle ? `${GITHUB_PREFIX}${handle}` : "" });
+              }}
+              placeholder="username"
+              maxLength={200}
+              className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="linkedin">LinkedIn</Label>
+          <div className="flex h-8 w-full min-w-0 items-center rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 md:text-sm dark:bg-input/30">
+            <span className="shrink-0 text-muted-foreground select-none">linkedin.com/in/</span>
+            <input
+              id="linkedin"
+              value={linkedinHandle}
+              onChange={(e) => {
+                const handle = stripPrefix(e.target.value, LINKEDIN_PATTERN);
+                onChange({ linkedin: handle ? `${LINKEDIN_PREFIX}${handle}` : "" });
+              }}
+              placeholder="username"
+              maxLength={200}
+              className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
       </div>
       <Button type="submit" className="w-full">
         {submitLabel}

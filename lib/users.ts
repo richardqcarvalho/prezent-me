@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { education, experiences, languages, setups, users } from "@/lib/db/schema";
+import { education, experiences, languages, projects, setups, users } from "@/lib/db/schema";
 
 type GitHubProfile = {
   githubId: string;
@@ -21,6 +21,7 @@ export async function upsertGitHubUser(profile: GitHubProfile) {
       firstName: firstName || null,
       lastName: rest.join(" ") || null,
       location: profile.location,
+      github: profile.login ? `https://github.com/${profile.login}` : null,
     })
     .onConflictDoUpdate({
       target: users.githubId,
@@ -49,6 +50,10 @@ export async function getUserEducation(userId: string) {
 
 export async function getUserExperiences(userId: string) {
   return db.select().from(experiences).where(eq(experiences.userId, userId));
+}
+
+export async function getUserProjects(userId: string) {
+  return db.select().from(projects).where(eq(projects.userId, userId));
 }
 
 export async function getLatestSetup(userId: string) {

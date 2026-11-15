@@ -3,6 +3,8 @@ export type ProfileDraft = {
   lastName: string;
   location: string;
   role: string;
+  github: string;
+  linkedin: string;
 };
 
 export type LanguageDraft = {
@@ -29,6 +31,12 @@ export type ExperienceDraft = {
   technologies: string;
 };
 
+export type ProjectDraft = {
+  name: string;
+  link: string;
+  description: string;
+};
+
 export type SetupDraft = {
   name: string;
   description: string;
@@ -39,16 +47,24 @@ export type WizardDraft = {
   languages: LanguageDraft[];
   education: EducationDraft[];
   experiences: ExperienceDraft[];
+  projects: ProjectDraft[];
   setup: SetupDraft;
 };
 
-export type WizardStepId = "profile" | "languages" | "education" | "experiences" | "setup";
+export type WizardStepId =
+  | "profile"
+  | "languages"
+  | "education"
+  | "experiences"
+  | "projects"
+  | "setup";
 
 export const WIZARD_STEP_IDS: WizardStepId[] = [
   "profile",
   "languages",
   "education",
   "experiences",
+  "projects",
   "setup",
 ];
 
@@ -111,11 +127,13 @@ export function buildStepFormData(id: WizardStepId, draft: WizardDraft): FormDat
 
   switch (id) {
     case "profile": {
-      const { firstName, lastName, location, role } = draft.profile;
+      const { firstName, lastName, location, role, github, linkedin } = draft.profile;
       fd.set("firstName", firstName);
       fd.set("lastName", lastName);
       fd.set("location", location);
       fd.set("role", role);
+      fd.set("github", github);
+      fd.set("linkedin", linkedin);
       break;
     }
     case "languages": {
@@ -143,6 +161,14 @@ export function buildStepFormData(id: WizardStepId, draft: WizardDraft): FormDat
         fd.append("startDate", row.startDate);
         fd.append("endDate", row.present ? "" : row.endDate);
         fd.append("technologies", row.technologies);
+      }
+      break;
+    }
+    case "projects": {
+      for (const row of draft.projects) {
+        fd.append("name", row.name);
+        fd.append("link", row.link);
+        fd.append("description", row.description);
       }
       break;
     }
