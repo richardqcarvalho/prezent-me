@@ -20,6 +20,7 @@ import {
   clearDraftSliceIfUnchanged,
   dropDraftSlice,
   loadCachedSlices,
+  registerWizardBridge,
   saveDraftSlice,
   WIZARD_STEP_IDS,
   type EducationDraft,
@@ -146,6 +147,36 @@ export function OnboardingWizard({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
+
+  useEffect(() => {
+    return registerWizardBridge({
+      flushAll: async () => {
+        const timers = syncTimers.current;
+        const pendingIds = Array.from(timers.keys());
+        for (const id of pendingIds) {
+          clearTimeout(timers.get(id));
+          timers.delete(id);
+        }
+        await Promise.all(pendingIds.map((id) => sync(id)));
+      },
+      cancelAll: () => {
+        const timers = syncTimers.current;
+        for (const timer of timers.values()) {
+          clearTimeout(timer);
+        }
+        timers.clear();
+      },
+      applyDraft: (nextDraft) => {
+        const timers = syncTimers.current;
+        for (const timer of timers.values()) {
+          clearTimeout(timer);
+        }
+        timers.clear();
+        draftRef.current = nextDraft;
+        setDraft(nextDraft);
+      },
+    });
+  });
 
   async function sync(id: WizardStepId) {
     const snapshot = JSON.stringify(draftRef.current[id]);

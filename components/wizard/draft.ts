@@ -122,6 +122,43 @@ export function clearDraftSliceIfUnchanged(userId: string, id: WizardStepId, sna
   }
 }
 
+export function clearAllDraftSlices(userId: string) {
+  try {
+    localStorage.removeItem(cacheKey(userId));
+  } catch {
+    // best-effort
+  }
+}
+
+type WizardBridge = {
+  flushAll: () => Promise<void>;
+  cancelAll: () => void;
+  applyDraft: (draft: WizardDraft) => void;
+};
+
+let activeWizardBridge: WizardBridge | null = null;
+
+export function registerWizardBridge(bridge: WizardBridge) {
+  activeWizardBridge = bridge;
+  return () => {
+    if (activeWizardBridge === bridge) {
+      activeWizardBridge = null;
+    }
+  };
+}
+
+export async function flushWizardSyncs() {
+  await activeWizardBridge?.flushAll();
+}
+
+export function cancelWizardSyncs() {
+  activeWizardBridge?.cancelAll();
+}
+
+export function applyImportedWizardDraft(draft: WizardDraft) {
+  activeWizardBridge?.applyDraft(draft);
+}
+
 export function buildStepFormData(id: WizardStepId, draft: WizardDraft): FormData {
   const fd = new FormData();
 

@@ -1,12 +1,14 @@
 import { LogOutIcon } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { DataTransferActions } from "@/components/data-transfer-actions";
 import { ThemeSelect } from "@/components/theme-select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 type HeaderProps = {
   user?: {
+    id: string;
     githubId: string;
     githubLogin: string | null;
   } | null;
@@ -17,6 +19,7 @@ export function Header({ user }: HeaderProps) {
     <header className="sticky top-0 z-10 flex h-14 w-full items-center justify-between border-b bg-background px-6">
       <span className="text-base font-semibold tracking-tight">Prezentme</span>
       <div className="flex items-center gap-3">
+        {user && <DataTransferActions userId={user.id} githubLogin={user.githubLogin} />}
         <ThemeSelect />
         {user && (
           <>
