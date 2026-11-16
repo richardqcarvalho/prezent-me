@@ -31,6 +31,73 @@ const LEVEL_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+type MonthRange = { start: number; end: number };
+
+function toMonthIndex(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return year * 12 + (month - 1);
+}
+
+function getMonthRange(start: string, end: string, present: boolean): MonthRange | null {
+  const from = toMonthIndex(start);
+  if (from === null) return null;
+
+  let to: number | null = null;
+  if (present) {
+    const now = new Date();
+    to = now.getFullYear() * 12 + now.getMonth();
+  } else {
+    to = toMonthIndex(end);
+  }
+  if (to === null || to <= from) return null;
+
+  return { start: from, end: to };
+}
+
+function getMergedDurationMonths(ranges: (MonthRange | null)[]): number {
+  const valid = ranges
+    .filter((r): r is MonthRange => r !== null)
+    .toSorted((a, b) => a.start - b.start || a.end - b.end);
+
+  if (valid.length === 0) return 0;
+
+  let total = 0;
+  let currentStart = valid[0].start;
+  let currentEnd = valid[0].end;
+
+  for (let i = 1; i < valid.length; i++) {
+    const next = valid[i];
+    if (next.start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, next.end);
+    } else {
+      total += currentEnd - currentStart;
+      currentStart = next.start;
+      currentEnd = next.end;
+    }
+  }
+
+  total += currentEnd - currentStart;
+  return total;
+}
+
+function formatDuration(totalMonths: number): string | null {
+  if (totalMonths <= 0) return null;
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  const parts: string[] = [];
+  if (years > 0) {
+    parts.push(`${years} ${years === 1 ? "yr" : "yrs"}`);
+  }
+  if (months > 0) {
+    parts.push(`${months} ${months === 1 ? "mo" : "mos"}`);
+  }
+  return parts.join(" ");
+}
+
 function formatDateRange(start: string, end: string, present: boolean) {
   const from = start.trim();
   const to = present ? "Present" : end.trim();
@@ -65,6 +132,18 @@ export function OverviewStep({
     (p) => p.name.trim() !== "" || p.link.trim() !== "" || p.description.trim() !== "",
   );
   const setups = draft.setup.filter((s) => s.name.trim() !== "" || s.description.trim() !== "");
+
+  const educationRanges = education.map((e) => getMonthRange(e.startDate, e.endDate, e.present));
+  const totalEducationDuration =
+    educationRanges.filter(Boolean).length > 1
+      ? formatDuration(getMergedDurationMonths(educationRanges))
+      : null;
+
+  const experienceRanges = experiences.map((e) => getMonthRange(e.startDate, e.endDate, e.present));
+  const totalExperienceDuration =
+    experienceRanges.filter(Boolean).length > 1
+      ? formatDuration(getMergedDurationMonths(experienceRanges))
+      : null;
 
   return (
     <div className="grid gap-4">
@@ -157,7 +236,14 @@ export function OverviewStep({
 
       <Card>
         <CardHeader className="border-b">
-          <CardTitle>Education</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span>Education</span>
+            {totalEducationDuration && (
+              <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs font-normal text-muted-foreground">
+                {totalEducationDuration}
+              </span>
+            )}
+          </CardTitle>
           <CardDescription>Academic background and degrees</CardDescription>
           <CardAction>
             <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(2)}>
@@ -172,6 +258,8 @@ export function OverviewStep({
             <div className="grid divide-y divide-border/60">
               {education.map((e, i) => {
                 const dates = formatDateRange(e.startDate, e.endDate, e.present);
+                const range = educationRanges[i];
+                const duration = range ? formatDuration(range.end - range.start) : null;
                 return (
                   <div key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -179,7 +267,10 @@ export function OverviewStep({
                         {e.degree || "Untitled degree"}
                       </span>
                       {dates && (
-                        <span className="font-mono text-xs text-muted-foreground">{dates}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {dates}
+                          {duration ? ` · ${duration}` : ""}
+                        </span>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -200,7 +291,14 @@ export function OverviewStep({
 
       <Card>
         <CardHeader className="border-b">
-          <CardTitle>Experience</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span>Experience</span>
+            {totalExperienceDuration && (
+              <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs font-normal text-muted-foreground">
+                {totalExperienceDuration}
+              </span>
+            )}
+          </CardTitle>
           <CardDescription>Work history and technologies</CardDescription>
           <CardAction>
             <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(3)}>
@@ -215,6 +313,8 @@ export function OverviewStep({
             <div className="grid divide-y divide-border/60">
               {experiences.map((exp, i) => {
                 const dates = formatDateRange(exp.startDate, exp.endDate, exp.present);
+                const range = experienceRanges[i];
+                const duration = range ? formatDuration(range.end - range.start) : null;
                 const techs = exp.technologies
                   .split(",")
                   .map((t) => t.trim())
@@ -231,7 +331,10 @@ export function OverviewStep({
                         )}
                       </div>
                       {dates && (
-                        <span className="font-mono text-xs text-muted-foreground">{dates}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {dates}
+                          {duration ? ` · ${duration}` : ""}
+                        </span>
                       )}
                     </div>
                     {exp.description.trim() && (
