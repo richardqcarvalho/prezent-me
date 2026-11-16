@@ -145,6 +145,40 @@ export function OverviewStep({
       ? formatDuration(getMergedDurationMonths(experienceRanges))
       : null;
 
+  const technologyMap = new Map<string, { label: string; ranges: MonthRange[] }>();
+  experiences.forEach((exp, i) => {
+    const range = experienceRanges[i];
+    const seenInEntry = new Set<string>();
+    for (const raw of exp.technologies.split(",")) {
+      const label = raw.trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seenInEntry.has(key)) continue;
+      seenInEntry.add(key);
+
+      let entry = technologyMap.get(key);
+      if (!entry) {
+        entry = { label, ranges: [] };
+        technologyMap.set(key, entry);
+      }
+      if (range) {
+        entry.ranges.push(range);
+      }
+    }
+  });
+
+  const technologyTotals = Array.from(technologyMap.entries())
+    .map(([key, { label, ranges }]) => {
+      const months = getMergedDurationMonths(ranges);
+      return {
+        key,
+        label,
+        months,
+        duration: formatDuration(months),
+      };
+    })
+    .toSorted((a, b) => b.months - a.months);
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -315,12 +349,8 @@ export function OverviewStep({
                 const dates = formatDateRange(exp.startDate, exp.endDate, exp.present);
                 const range = experienceRanges[i];
                 const duration = range ? formatDuration(range.end - range.start) : null;
-                const techs = exp.technologies
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean);
                 return (
-                  <div key={i} className="grid gap-2 py-3 first:pt-0 last:pb-0">
+                  <div key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <div>
                         <span className="text-sm font-medium text-foreground">
@@ -342,21 +372,27 @@ export function OverviewStep({
                         {exp.description}
                       </p>
                     )}
-                    {techs.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {techs.map((tech) => (
-                          <span
-                            key={tech}
-                            className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
-                          >
-                            {tech}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 );
               })}
+              {technologyTotals.length > 0 && (
+                <div className="grid gap-2 pt-3 first:pt-0">
+                  <span className="text-xs font-medium text-muted-foreground">Technologies</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {technologyTotals.map((tech) => (
+                      <div
+                        key={tech.key}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2 py-0.5 text-xs"
+                      >
+                        <span className="font-medium text-foreground">{tech.label}</span>
+                        {tech.duration && (
+                          <span className="font-mono text-muted-foreground">{tech.duration}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
