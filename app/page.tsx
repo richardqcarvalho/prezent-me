@@ -1,17 +1,33 @@
+import {
+  ArrowRightIcon,
+  BriefcaseIcon,
+  Code2Icon,
+  FileJsonIcon,
+  SparklesIcon,
+  UserIcon,
+} from "lucide-react";
+
 import { getSessionUser } from "@/lib/session";
 import {
-  getLatestSetup,
   getUserById,
   getUserEducation,
   getUserExperiences,
   getUserLanguages,
   getUserProjects,
+  getUserSetups,
 } from "@/lib/users";
 import { signInWithGitHub } from "@/app/actions/auth";
 import { Header } from "@/components/header";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 function GitHubIcon() {
   return (
@@ -26,24 +42,128 @@ export default async function Home() {
 
   if (!sessionUser) {
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-svh flex-col">
         <Header />
-        <main className="flex flex-1 items-center justify-center p-6">
-          <Card className="w-full max-w-sm">
-            <CardHeader>
-              <CardTitle className="text-xl">Prezentme</CardTitle>
-              <CardDescription>Sign in to set up your profile.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form action={signInWithGitHub}>
-                <Button type="submit" className="w-full">
-                  <GitHubIcon data-icon="inline-start" />
-                  Sign in with GitHub
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+        <main className="flex flex-1 flex-col">
+          <section className="border-b border-grid">
+            <div className="container-wrapper">
+              <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6 md:py-20 lg:py-24">
+                <div className="inline-flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-secondary-foreground">
+                  <SparklesIcon className="size-3 text-muted-foreground" />
+                  <span>Structured profile, experience & portfolio engine</span>
+                  <ArrowRightIcon className="size-3 text-muted-foreground" />
+                </div>
+
+                <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-balance text-primary sm:text-4xl lg:leading-[1.1] xl:text-5xl xl:tracking-tighter">
+                  The Foundation for your Developer Profile
+                </h1>
+
+                <p className="max-w-2xl text-base text-balance text-muted-foreground sm:text-lg">
+                  Composable, structured career data with instant auto-save and portable JSON
+                  export. Build your profile once and generate tailored portfolios or resumes.
+                </p>
+
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+                  <form action={signInWithGitHub}>
+                    <Button type="submit" size="lg" className="h-9 rounded-4xl px-4">
+                      <GitHubIcon data-icon="inline-start" />
+                      Sign in with GitHub
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="flex-1 border-b border-grid bg-muted/20 dark:bg-transparent">
+            <div className="container-wrapper px-4 py-10 sm:px-6 md:py-14">
+              <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
+                <Card className="justify-between">
+                  <CardHeader>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="inline-flex size-8 items-center justify-center rounded-lg bg-muted text-foreground">
+                        <UserIcon className="size-4" />
+                      </span>
+                    </div>
+                    <CardTitle>Identity & Languages</CardTitle>
+                    <CardDescription>
+                      Centralize your role, location, social handles, and spoken languages with
+                      clean validation.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between">
+                        <span>github.com/</span>
+                        <span className="text-foreground">username</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>linkedin.com/in/</span>
+                        <span className="text-foreground">profile</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="justify-between">
+                  <CardHeader>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="inline-flex size-8 items-center justify-center rounded-lg bg-muted text-foreground">
+                        <BriefcaseIcon className="size-4" />
+                      </span>
+                    </div>
+                    <CardTitle>Experience & Education</CardTitle>
+                    <CardDescription>
+                      Capture your work history, tech stacks, degrees, and timelines with real-time
+                      draft syncing.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["TypeScript", "React", "Next.js", "PostgreSQL", "Tailwind CSS"].map(
+                        (tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="justify-between">
+                  <CardHeader>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="inline-flex size-8 items-center justify-center rounded-lg bg-muted text-foreground">
+                        <Code2Icon className="size-4" />
+                      </span>
+                    </div>
+                    <CardTitle>Projects & Portable JSON</CardTitle>
+                    <CardDescription>
+                      Showcase your shipped projects, document your setup, and export your full
+                      schema to JSON, PDF, or HTML.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter className="justify-between text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      <FileJsonIcon className="size-3.5" />
+                      prezentme.json
+                    </span>
+                  </CardFooter>
+                </Card>
+              </div>
+            </div>
+          </section>
         </main>
+        <footer className="border-t border-grid">
+          <div className="container-wrapper flex h-12 items-center justify-between px-4 text-xs text-muted-foreground sm:px-6">
+            <span>Built with Next.js, Tailwind CSS, and shadcn/ui.</span>
+            <span className="font-mono">Prezentme</span>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -54,7 +174,7 @@ export default async function Home() {
     getUserEducation(sessionUser.id),
     getUserExperiences(sessionUser.id),
     getUserProjects(sessionUser.id),
-    getLatestSetup(sessionUser.id),
+    getUserSetups(sessionUser.id),
   ]);
 
   if (!user) {
@@ -70,13 +190,13 @@ export default async function Home() {
     education: latest(education),
     experiences: latest(experiences),
     projects: latest(projects),
-    setup: setup?.updatedAt.getTime() ?? 0,
+    setup: latest(setup),
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-svh flex-col">
       <Header user={user} />
-      <main className="flex flex-1">
+      <main className="container-wrapper flex flex-1 flex-col">
         <OnboardingWizard
           user={user}
           languages={languages}

@@ -64,7 +64,21 @@ export function MonthYearSelect({
   }
 
   return (
-    <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm leading-none font-medium select-none">{label}</span>
+        {onPresentChange && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground select-none hover:text-foreground">
+            <input
+              type="checkbox"
+              checked={present}
+              onChange={(e) => onPresentChange(e.target.checked)}
+              className="size-3.5 cursor-pointer rounded-[4px] border border-input accent-primary"
+            />
+            Currently here
+          </label>
+        )}
+      </div>
       <input type="hidden" name={name} value={present ? "" : value} />
       <div className="grid grid-cols-2 gap-2">
         <Select
@@ -105,17 +119,6 @@ export function MonthYearSelect({
           </SelectContent>
         </Select>
       </div>
-      {onPresentChange && (
-        <label className="flex cursor-pointer items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={present}
-            onChange={(e) => onPresentChange(e.target.checked)}
-            className="accent-[var(--primary)]"
-          />
-          Present
-        </label>
-      )}
     </div>
   );
 }

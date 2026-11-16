@@ -48,7 +48,7 @@ export type WizardDraft = {
   education: EducationDraft[];
   experiences: ExperienceDraft[];
   projects: ProjectDraft[];
-  setup: SetupDraft;
+  setup: SetupDraft[];
 };
 
 export type WizardStepId =
@@ -69,7 +69,7 @@ export const WIZARD_STEP_IDS: WizardStepId[] = [
 ];
 
 function cacheKey(userId: string) {
-  return `prezentme:draft:v2:${userId}`;
+  return `prezentme:draft:v3:${userId}`;
 }
 
 export type CachedSlice = { data: unknown; savedAt: number };
@@ -210,8 +210,10 @@ export function buildStepFormData(id: WizardStepId, draft: WizardDraft): FormDat
       break;
     }
     case "setup": {
-      fd.set("name", draft.setup.name);
-      fd.set("description", draft.setup.description);
+      for (const row of draft.setup) {
+        fd.append("name", row.name);
+        fd.append("description", row.description);
+      }
       break;
     }
   }

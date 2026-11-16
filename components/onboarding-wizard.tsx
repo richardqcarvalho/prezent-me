@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  BriefcaseIcon,
+  EyeIcon,
+  FolderGit2Icon,
+  GraduationCapIcon,
+  LanguagesIcon,
+  LaptopIcon,
+  UserIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "cn";
 
@@ -34,19 +43,64 @@ import {
 } from "@/components/wizard/draft";
 import { ExperienceStep } from "@/components/wizard/experience-step";
 import { LanguagesStep } from "@/components/wizard/languages-step";
+import { OverviewStep } from "@/components/wizard/overview-step";
 import { ProfileStep } from "@/components/wizard/profile-step";
 import { ProjectsStep } from "@/components/wizard/projects-step";
 import { SetupStep } from "@/components/wizard/setup-step";
 import type { Education, Experience, Language, Project, Setup, User } from "@/lib/db/schema";
 
-const STEPS = [
-  { id: "profile", title: "Profile" },
-  { id: "languages", title: "Language" },
-  { id: "education", title: "Education" },
-  { id: "experiences", title: "Experience" },
-  { id: "projects", title: "Projects" },
-  { id: "setup", title: "Setup" },
-] as const satisfies ReadonlyArray<{ id: WizardStepId; title: string }>;
+type NavStepId = WizardStepId | "overview";
+
+const STEPS: ReadonlyArray<{
+  id: NavStepId;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    id: "profile",
+    title: "Profile",
+    description:
+      "Your core identity, role, location, and public developer links used across your portfolio.",
+    icon: UserIcon,
+  },
+  {
+    id: "languages",
+    title: "Languages",
+    description: "Spoken languages and your fluency level for international teams and roles.",
+    icon: LanguagesIcon,
+  },
+  {
+    id: "education",
+    title: "Education",
+    description: "Academic degrees, bootcamps, certifications, and institutions you attended.",
+    icon: GraduationCapIcon,
+  },
+  {
+    id: "experiences",
+    title: "Experience",
+    description: "Work history, responsibilities, and the technologies you shipped in production.",
+    icon: BriefcaseIcon,
+  },
+  {
+    id: "projects",
+    title: "Projects",
+    description: "Open-source repositories, side projects, and case studies worth highlighting.",
+    icon: FolderGit2Icon,
+  },
+  {
+    id: "setup",
+    title: "Setup",
+    description: "Hardware, software, and daily tools that power your development workflow.",
+    icon: LaptopIcon,
+  },
+  {
+    id: "overview",
+    title: "Overview",
+    description: "Review all your information in one place and export your portfolio.",
+    icon: EyeIcon,
+  },
+];
 
 const SYNC_DELAY_MS = 800;
 
@@ -65,7 +119,7 @@ type OnboardingWizardProps = {
   education: Education[];
   experiences: Experience[];
   projects: Project[];
-  setup: Setup | null;
+  setup: Setup[];
   /** Server-side last-modified (ms epoch) per step, for last-writer-wins restore. */
   serverTimestamps: Record<WizardStepId, number>;
 };
@@ -79,7 +133,6 @@ export function OnboardingWizard({
   setup,
   serverTimestamps,
 }: OnboardingWizardProps) {
-  const router = useRouter();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<WizardDraft>(() => ({
     profile: {
@@ -113,7 +166,10 @@ export function OnboardingWizard({
       link: p.link ?? "",
       description: p.description ?? "",
     })),
-    setup: { name: setup?.name ?? "", description: setup?.description ?? "" },
+    setup: setup.map((s) => ({
+      name: s.name,
+      description: s.description ?? "",
+    })),
   }));
 
   const draftRef = useRef(draft);
@@ -235,20 +291,21 @@ export function OnboardingWizard({
     update("experiences", (d) => ({ ...d, experiences: rows }));
   const updateProjects = (rows: ProjectDraft[]) =>
     update("projects", (d) => ({ ...d, projects: rows }));
-  const updateSetup = (patch: Partial<SetupDraft>) =>
-    update("setup", (d) => ({ ...d, setup: { ...d.setup, ...patch } }));
+  const updateSetup = (rows: SetupDraft[]) => update("setup", (d) => ({ ...d, setup: rows }));
 
   function goToStep(nextStep: number) {
     if (nextStep === step) return;
     const currentId = STEPS[step].id;
-    if (syncTimers.current.has(currentId)) {
+    if (currentId !== "overview" && syncTimers.current.has(currentId)) {
       flushSync(currentId);
     }
     setStep(nextStep);
   }
 
   function goNext(id: WizardStepId, nextStep: number) {
-    flushSync(id);
+    if (syncTimers.current.has(id)) {
+      flushSync(id);
+    }
     setStep(nextStep);
   }
 
@@ -256,63 +313,58 @@ export function OnboardingWizard({
     goToStep(nextStep);
   }
 
-  function finish() {
-    if (!draftRef.current.setup.name.trim()) {
-      toast.error("Please give your setup a name.");
-      return;
-    }
-    flushSync("setup");
-    router.push("/");
-  }
+  const currentStep = STEPS[step];
 
   return (
     <div className="flex w-full flex-1 flex-col md:flex-row">
-      <aside className="w-full border-b bg-sidebar text-sidebar-foreground md:w-64 md:shrink-0 md:border-r md:border-b-0">
-        <nav aria-label="Progress" className="flex gap-1 overflow-x-auto p-3 md:flex-col md:p-4">
-          {STEPS.map((s, i) => {
-            const isActive = i === step;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => goToStep(i)}
-                aria-current={isActive ? "step" : undefined}
-                className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-                )}
-              >
-                <span
+      <aside className="w-full border-b border-grid md:w-64 md:shrink-0 md:border-r md:border-b-0">
+        <div className="sticky top-(--header-height) flex flex-col gap-2 p-3 md:p-4">
+          <div className="hidden items-center px-2.5 py-1 text-xs font-medium text-muted-foreground md:flex">
+            <span>Sections</span>
+          </div>
+          <nav aria-label="Progress" className="flex gap-1 overflow-x-auto md:flex-col">
+            {STEPS.map((s, i) => {
+              const isActive = i === step;
+              const Icon = s.icon;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => goToStep(i)}
+                  aria-current={isActive ? "step" : undefined}
                   className={cn(
-                    "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ring-1 transition-colors",
+                    "group flex shrink-0 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                     isActive
-                      ? "bg-primary text-primary-foreground ring-primary"
-                      : i < step
-                        ? "bg-primary/15 text-foreground ring-foreground/15"
-                        : "bg-muted text-muted-foreground ring-foreground/10",
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
                 >
-                  {i + 1}
-                </span>
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    isActive && "text-sidebar-accent-foreground",
-                  )}
-                >
-                  {s.title}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+                  <Icon
+                    className={cn(
+                      "size-4 shrink-0 transition-colors",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  />
+                  <span>{s.title}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </aside>
 
-      <div className="flex flex-1 justify-center p-6 md:p-10">
-        <div className="flex w-full max-w-xl flex-col gap-6">
-          <h1 className="text-lg font-medium">{STEPS[step].title}</h1>
+      <div className="flex min-w-0 flex-1 justify-center px-4 py-8 sm:px-6 md:px-10 md:py-10">
+        <div className="flex w-full max-w-2xl flex-col gap-6">
+          <div className="flex flex-col gap-1.5 border-b border-grid pb-5">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              {currentStep.title}
+            </h1>
+            <p className="text-sm text-balance text-muted-foreground sm:text-base">
+              {currentStep.description}
+            </p>
+          </div>
 
           {step === 0 && (
             <ProfileStep
@@ -355,11 +407,14 @@ export function OnboardingWizard({
           )}
           {step === 5 && (
             <SetupStep
-              value={draft.setup}
+              rows={draft.setup}
               onChange={updateSetup}
               onBack={() => goBack(4)}
-              onFinish={finish}
+              onNext={() => goNext("setup", 6)}
             />
+          )}
+          {step === 6 && (
+            <OverviewStep draft={draft} onBack={() => goBack(5)} onGoToStep={goToStep} />
           )}
         </div>
       </div>

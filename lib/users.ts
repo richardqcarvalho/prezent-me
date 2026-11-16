@@ -56,6 +56,10 @@ export async function getUserProjects(userId: string) {
   return db.select().from(projects).where(eq(projects.userId, userId));
 }
 
+export async function getUserSetups(userId: string) {
+  return db.select().from(setups).where(eq(setups.userId, userId));
+}
+
 export async function getLatestSetup(userId: string) {
   const [setup] = await db
     .select()

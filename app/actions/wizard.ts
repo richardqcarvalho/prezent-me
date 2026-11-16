@@ -14,12 +14,12 @@ import {
 } from "@/lib/constants";
 import { getSessionUser } from "@/lib/session";
 import {
-  getLatestSetup,
   getUserById,
   getUserEducation,
   getUserExperiences,
   getUserLanguages,
   getUserProjects,
+  getUserSetups,
 } from "@/lib/users";
 import type { WizardDraft } from "@/components/wizard/draft";
 
@@ -66,7 +66,7 @@ export type ExportedData = {
   setup: {
     name: string;
     description: string | null;
-  } | null;
+  }[];
 };
 
 export type ExportActionResult =
@@ -288,25 +288,42 @@ export async function saveProjects(formData: FormData): Promise<ActionState> {
 }
 
 export async function saveSetup(formData: FormData): Promise<ActionState> {
-  const user = await getSessionUser();
-  if (!user) {
+  const userId = await requireUserId();
+  if (!userId) {
     return { success: false, error: "Not authenticated" };
   }
 
-  const name = (formData.get("name") as string)?.trim() || "";
-  const description = (formData.get("description") as string)?.trim() || null;
+  const names = formData.getAll("name").map((v) => String(v).trim());
+  const descriptions = formData.getAll("description").map((v) => String(v).trim());
 
-  if (!name) {
-    return { success: false, error: "Please give your setup a name." };
+  const rows = names
+    .map((name, i) => ({
+      name,
+      description: descriptions[i] || null,
+    }))
+    .filter((row) => row.name !== "" || row.description !== null);
+
+  const invalid = rows.find((row) => row.name === "");
+  if (invalid) {
+    return {
+      success: false,
+      error: "Please fill in the name for each setup item.",
+    };
   }
 
+  const now = new Date();
+
   try {
-    await db.insert(setups).values({
-      userId: user.id,
-      name,
-      description,
-      completedAt: new Date(),
-    });
+    await db.batch([
+      db.delete(setups).where(eq(setups.userId, userId)),
+      ...(rows.length > 0
+        ? [
+            db
+              .insert(setups)
+              .values(rows.map((row) => ({ userId, ...row, completedAt: now, updatedAt: now }))),
+          ]
+        : []),
+    ]);
     revalidate();
     return { success: true };
   } catch (error) {
@@ -342,14 +359,14 @@ export async function exportUserData(): Promise<ExportActionResult> {
   }
 
   try {
-    const [user, userLanguages, userEducation, userExperiences, userProjects, setup] =
+    const [user, userLanguages, userEducation, userExperiences, userProjects, userSetups] =
       await Promise.all([
         getUserById(userId),
         getUserLanguages(userId),
         getUserEducation(userId),
         getUserExperiences(userId),
         getUserProjects(userId),
-        getLatestSetup(userId),
+        getUserSetups(userId),
       ]);
 
     if (!user) {
@@ -395,12 +412,10 @@ export async function exportUserData(): Promise<ExportActionResult> {
         link: p.link,
         description: p.description,
       })),
-      setup: setup
-        ? {
-            name: setup.name,
-            description: setup.description,
-          }
-        : null,
+      setup: userSetups.map((s) => ({
+        name: s.name,
+        description: s.description,
+      })),
     };
 
     return { success: true, data };
@@ -553,14 +568,31 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
     };
   }
 
-  // 6. Setup
+  // 6. Setup (supports both array of setup items and legacy single setup object)
   const rawSetup = raw.setup;
-  if (rawSetup !== undefined && rawSetup !== null && !isPlainObject(rawSetup)) {
+  let setupItemsInput: unknown[] = [];
+  if (Array.isArray(rawSetup)) {
+    setupItemsInput = rawSetup;
+  } else if (isPlainObject(rawSetup)) {
+    setupItemsInput = [rawSetup];
+  } else if (rawSetup !== undefined && rawSetup !== null) {
     return { success: false, error: "Invalid setup section." };
   }
-  const setupObj = isPlainObject(rawSetup) ? rawSetup : null;
-  const setupName = setupObj ? cleanString(setupObj.name, 100) : "";
-  const setupDescription = setupObj ? cleanNullableString(setupObj.description) : null;
+
+  const setupRows = setupItemsInput
+    .filter(isPlainObject)
+    .map((item) => ({
+      name: cleanString(item.name, 100),
+      description: cleanNullableString(item.description),
+    }))
+    .filter((row) => row.name !== "" || row.description !== null);
+
+  if (setupRows.some((row) => row.name === "")) {
+    return {
+      success: false,
+      error: "Each setup entry requires a name.",
+    };
+  }
 
   const now = new Date();
 
@@ -608,15 +640,17 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
           ]
         : []),
       db.delete(setups).where(eq(setups.userId, userId)),
-      ...(setupName
+      ...(setupRows.length > 0
         ? [
-            db.insert(setups).values({
-              userId,
-              name: setupName,
-              description: setupDescription,
-              completedAt: now,
-              updatedAt: now,
-            }),
+            db.insert(setups).values(
+              setupRows.map((row) => ({
+                userId,
+                name: row.name,
+                description: row.description,
+                completedAt: now,
+                updatedAt: now,
+              })),
+            ),
           ]
         : []),
     ]);
@@ -658,10 +692,10 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
         link: p.link ?? "",
         description: p.description ?? "",
       })),
-      setup: {
-        name: setupName,
-        description: setupDescription ?? "",
-      },
+      setup: setupRows.map((s) => ({
+        name: s.name,
+        description: s.description ?? "",
+      })),
     };
 
     return { success: true, draft };

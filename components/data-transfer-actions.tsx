@@ -107,14 +107,13 @@ export function DataTransferActions({ userId, githubLogin }: DataTransferActions
       <Button
         type="button"
         variant="outline"
-        size="sm"
         disabled={busy}
         onClick={() => fileInputRef.current?.click()}
       >
         <UploadIcon data-icon="inline-start" />
         Import
       </Button>
-      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={handleExport}>
+      <Button type="button" variant="outline" disabled={busy} onClick={handleExport}>
         <DownloadIcon data-icon="inline-start" />
         Export
       </Button>

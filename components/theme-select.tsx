@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { ContrastIcon } from "lucide-react";
 
 import {
   Select,
@@ -33,10 +34,11 @@ export function ThemeSelect() {
         if (value) setTheme(value);
       }}
     >
-      <SelectTrigger aria-label="Theme">
+      <SelectTrigger aria-label="Theme" className="gap-1.5">
+        <ContrastIcon className="size-3.5 text-muted-foreground" />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent align="end">
         <SelectItem value="system">System</SelectItem>
         <SelectItem value="light">Light</SelectItem>
         <SelectItem value="dark">Dark</SelectItem>

@@ -1,10 +1,19 @@
 "use client";
 
-import { PlusIcon, TrashIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, BriefcaseIcon, PlusIcon, TrashIcon } from "lucide-react";
 
 import type { ExperienceDraft } from "@/components/wizard/draft";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MonthYearSelect } from "@/components/ui/month-year-select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -47,86 +56,130 @@ export function ExperienceStep({
         e.preventDefault();
         onNext();
       }}
-      className="grid gap-6"
+      className="grid gap-4"
     >
-      {rows.map((row, index) => (
-        <div key={index} className="grid grid-cols-[1fr_auto] gap-2">
-          <div className="grid gap-2">
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                name="role"
-                value={row.role}
-                onChange={(e) => updateRow(index, { role: e.target.value })}
-                placeholder="Role, e.g. Frontend Engineer"
-                maxLength={150}
-                aria-label="Role"
-              />
-              <Input
-                name="company"
-                value={row.company}
-                onChange={(e) => updateRow(index, { company: e.target.value })}
-                placeholder="Company"
-                maxLength={150}
-                aria-label="Company"
-              />
-            </div>
-            <Textarea
-              name="description"
-              value={row.description}
-              onChange={(e) => updateRow(index, { description: e.target.value })}
-              placeholder="What did you do there?"
-              aria-label="Description"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <MonthYearSelect
-                name="startDate"
-                label="Start"
-                value={row.startDate}
-                onChange={(value) => updateRow(index, { startDate: value })}
-              />
-              <MonthYearSelect
-                name="endDate"
-                label="End"
-                value={row.endDate}
-                onChange={(value) => updateRow(index, { endDate: value })}
-                present={row.present}
-                onPresentChange={(present) => updateRow(index, { present })}
-              />
-            </div>
-            <Input
-              name="technologies"
-              value={row.technologies}
-              onChange={(e) => updateRow(index, { technologies: e.target.value })}
-              placeholder="Technologies, comma-separated (e.g. React, TypeScript)"
-              aria-label="Technologies"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => removeRow(index)}
-            aria-label="Remove experience entry"
-          >
-            <TrashIcon />
+      {rows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <BriefcaseIcon className="size-4" />
+          </span>
+          <p className="text-sm font-medium text-foreground">No work experience added yet</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Add your previous roles, responsibilities, and the technologies you worked with.
+          </p>
+          <Button type="button" variant="secondary" size="sm" className="mt-1" onClick={addRow}>
+            <PlusIcon data-icon="inline-start" />
+            Add experience
           </Button>
         </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="justify-self-start"
-        onClick={addRow}
-      >
-        <PlusIcon data-icon="inline-start" />
-        Add experience
-      </Button>
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="ghost" onClick={onBack}>
+      ) : (
+        rows.map((row, index) => (
+          <Card key={index}>
+            <CardHeader className="border-b">
+              <CardTitle className="truncate">{row.role.trim() || "Work Experience"}</CardTitle>
+              <CardDescription className="truncate">
+                {row.company.trim() || "Company, responsibilities, and tech stack"}
+              </CardDescription>
+              <CardAction>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => removeRow(index)}
+                  aria-label="Remove experience entry"
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <TrashIcon />
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor={`exp-role-${index}`}>Role</Label>
+                  <Input
+                    id={`exp-role-${index}`}
+                    name="role"
+                    value={row.role}
+                    onChange={(e) => updateRow(index, { role: e.target.value })}
+                    placeholder="e.g. Senior Frontend Engineer"
+                    maxLength={150}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={`exp-company-${index}`}>Company</Label>
+                  <Input
+                    id={`exp-company-${index}`}
+                    name="company"
+                    value={row.company}
+                    onChange={(e) => updateRow(index, { company: e.target.value })}
+                    placeholder="e.g. Vercel"
+                    maxLength={150}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MonthYearSelect
+                  name="startDate"
+                  label="Start date"
+                  value={row.startDate}
+                  onChange={(value) => updateRow(index, { startDate: value })}
+                />
+                <MonthYearSelect
+                  name="endDate"
+                  label="End date"
+                  value={row.endDate}
+                  onChange={(value) => updateRow(index, { endDate: value })}
+                  present={row.present}
+                  onPresentChange={(present) => updateRow(index, { present })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor={`exp-desc-${index}`}>Description</Label>
+                <Textarea
+                  id={`exp-desc-${index}`}
+                  name="description"
+                  value={row.description}
+                  onChange={(e) => updateRow(index, { description: e.target.value })}
+                  placeholder="Describe your key achievements, architecture decisions, and impact..."
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor={`exp-tech-${index}`}>Technologies</Label>
+                <Input
+                  id={`exp-tech-${index}`}
+                  name="technologies"
+                  value={row.technologies}
+                  onChange={(e) => updateRow(index, { technologies: e.target.value })}
+                  placeholder="React, TypeScript, Next.js, PostgreSQL"
+                />
+                <p className="text-xs text-muted-foreground">Separate technologies with commas.</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+
+      <div className="flex items-center justify-between pt-2">
+        <Button type="button" variant="outline" onClick={onBack}>
+          <ArrowLeftIcon data-icon="inline-start" />
           Back
         </Button>
-        <Button type="submit">Next</Button>
+        <div className="flex items-center gap-2">
+          {rows.length > 0 && (
+            <Button type="button" variant="secondary" onClick={addRow}>
+              <PlusIcon data-icon="inline-start" />
+              Add experience
+            </Button>
+          )}
+          <Button type="submit">
+            Next
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
+        </div>
       </div>
     </form>
   );
