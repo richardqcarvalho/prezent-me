@@ -97,12 +97,12 @@ export function ProjectsStep({
                     name="name"
                     value={row.name}
                     onChange={(e) => updateRow(index, { name: e.target.value })}
-                    placeholder="e.g. Prezentme"
+                    placeholder="e.g. /prezent-me"
                     maxLength={150}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor={`proj-link-${index}`}>URL / Repository</Label>
+                  <Label htmlFor={`proj-link-${index}`}>URL / repository</Label>
                   <Input
                     id={`proj-link-${index}`}
                     name="link"

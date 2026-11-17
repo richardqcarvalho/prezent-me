@@ -98,7 +98,7 @@ export function EducationStep({
         rows.map((row, index) => (
           <Card key={index}>
             <CardHeader className="border-b">
-              <CardTitle className="truncate">{row.degree.trim() || "Education Entry"}</CardTitle>
+              <CardTitle className="truncate">{row.degree.trim() || "Education entry"}</CardTitle>
               <CardDescription className="truncate">
                 {row.university.trim() || "Institution details and study dates"}
               </CardDescription>
@@ -118,7 +118,7 @@ export function EducationStep({
             <CardContent className="grid gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
-                  <Label htmlFor={`edu-degree-${index}`}>Degree / Field of Study</Label>
+                  <Label htmlFor={`edu-degree-${index}`}>Degree / field of study</Label>
                   <Input
                     id={`edu-degree-${index}`}
                     name="degree"
@@ -151,7 +151,7 @@ export function EducationStep({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor={`edu-university-${index}`}>University / Institution</Label>
+                <Label htmlFor={`edu-university-${index}`}>University / institution</Label>
                 <Input
                   id={`edu-university-${index}`}
                   name="university"

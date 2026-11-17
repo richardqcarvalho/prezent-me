@@ -76,7 +76,7 @@ export function ExperienceStep({
         rows.map((row, index) => (
           <Card key={index}>
             <CardHeader className="border-b">
-              <CardTitle className="truncate">{row.role.trim() || "Work Experience"}</CardTitle>
+              <CardTitle className="truncate">{row.role.trim() || "Work experience"}</CardTitle>
               <CardDescription className="truncate">
                 {row.company.trim() || "Company, responsibilities, and tech stack"}
               </CardDescription>

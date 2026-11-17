@@ -45,7 +45,7 @@ export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: P
     >
       <Card>
         <CardHeader className="border-b">
-          <CardTitle>Personal Information</CardTitle>
+          <CardTitle>Personal information</CardTitle>
           <CardDescription>
             How your name, headline role, and social profiles appear publicly.
           </CardDescription>
@@ -76,7 +76,7 @@ export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: P
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="role">Role / Headline</Label>
+              <Label htmlFor="role">Role / headline</Label>
               <Input
                 id="role"
                 value={value.role}

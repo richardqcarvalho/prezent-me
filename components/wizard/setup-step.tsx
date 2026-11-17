@@ -71,7 +71,7 @@ export function SetupStep({
           <Card key={index}>
             <CardHeader className="border-b">
               <div className="flex items-center gap-2">
-                <CardTitle className="truncate">{row.name.trim() || "Setup Item"}</CardTitle>
+                <CardTitle className="truncate">{row.name.trim() || "Setup item"}</CardTitle>
               </div>
               <CardDescription className="truncate">
                 {row.description.trim() || "Hardware, software, or environment details"}

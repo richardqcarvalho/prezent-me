@@ -64,7 +64,7 @@ export function LanguagesStep({
         <CardHeader className="border-b">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <CardTitle>Spoken Languages</CardTitle>
+              <CardTitle>Spoken languages</CardTitle>
               <CardDescription>Add the languages you speak and your proficiency.</CardDescription>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={addRow}>
