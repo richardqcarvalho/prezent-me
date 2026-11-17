@@ -17,33 +17,10 @@ type HeaderProps = {
 
 function BrandLogo() {
   return (
-    <svg
-      viewBox="0 0 256 256"
-      className="size-5 shrink-0 text-foreground"
-      fill="none"
-      aria-hidden="true"
-    >
-      <line
-        x1="208"
-        y1="128"
-        x2="128"
-        y2="208"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="28"
-      />
-      <line
-        x1="192"
-        y1="40"
-        x2="40"
-        y2="192"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="28"
-      />
-    </svg>
+    <span className="inline-flex items-center text-sm font-bold tracking-tight select-none">
+      <span className="text-foreground">/prezent-</span>
+      <span className="text-muted-foreground">me</span>
+    </span>
   );
 }
 
@@ -53,10 +30,10 @@ export function Header({ user }: HeaderProps) {
       <div className="container-wrapper flex h-(--header-height) items-center justify-between gap-2 px-4 sm:px-6">
         <Link
           href="/"
-          className="flex h-8 items-center gap-2 text-sm font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
+          aria-label="/prezent-me home"
+          className="inline-flex h-8 items-center text-foreground transition-opacity hover:opacity-80"
         >
           <BrandLogo />
-          <span>Prezentme</span>
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-2.5">

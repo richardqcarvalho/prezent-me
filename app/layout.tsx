@@ -10,7 +10,7 @@ const geistSans = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: "Prezentme — Developer Profile & Portfolio System",
+  title: "/prezent-me",
   description:
     "Structure your professional profile, experience, education, and projects in one place.",
 };

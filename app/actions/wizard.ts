@@ -448,7 +448,7 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
   if (!hasKnownSection) {
     return {
       success: false,
-      error: "Invalid file format. No recognizable Prezentme sections found.",
+      error: "Invalid file format. No recognizable /prezent-me sections found.",
     };
   }
 
