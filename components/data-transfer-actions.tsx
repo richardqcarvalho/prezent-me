@@ -109,13 +109,22 @@ export function DataTransferActions({ userId, githubLogin }: DataTransferActions
         variant="outline"
         disabled={busy}
         onClick={() => fileInputRef.current?.click()}
+        aria-label="Import JSON"
+        className="w-8 px-0 sm:w-auto sm:px-2.5"
       >
-        <UploadIcon data-icon="inline-start" />
-        Import
+        <UploadIcon />
+        <span className="hidden sm:inline">Import</span>
       </Button>
-      <Button type="button" variant="outline" disabled={busy} onClick={handleExport}>
-        <DownloadIcon data-icon="inline-start" />
-        Export
+      <Button
+        type="button"
+        variant="outline"
+        disabled={busy}
+        onClick={handleExport}
+        aria-label="Export JSON"
+        className="w-8 px-0 sm:w-auto sm:px-2.5"
+      >
+        <DownloadIcon />
+        <span className="hidden sm:inline">Export</span>
       </Button>
     </div>
   );

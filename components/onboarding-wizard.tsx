@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   BriefcaseIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   EyeIcon,
   FolderGit2Icon,
   GraduationCapIcon,
@@ -47,6 +49,15 @@ import { OverviewStep } from "@/components/wizard/overview-step";
 import { ProfileStep } from "@/components/wizard/profile-step";
 import { ProjectsStep } from "@/components/wizard/projects-step";
 import { SetupStep } from "@/components/wizard/setup-step";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { normalizeYearMonth } from "@/lib/constants";
 import type { Education, Experience, Language, Project, Setup, User } from "@/lib/db/schema";
 
 type NavStepId = WizardStepId | "overview";
@@ -138,6 +149,8 @@ export function OnboardingWizard({
     profile: {
       firstName: user.firstName ?? "",
       lastName: user.lastName ?? "",
+      email: user.email ?? "",
+      phone: user.phone ?? "",
       location: user.location ?? "",
       role: user.role ?? "",
       github: user.github ?? "",
@@ -148,16 +161,16 @@ export function OnboardingWizard({
       degree: e.degree,
       level: e.level,
       university: e.university,
-      startDate: e.startDate ?? "",
-      endDate: e.endDate ?? "",
+      startDate: normalizeYearMonth(e.startDate) ?? "",
+      endDate: normalizeYearMonth(e.endDate) ?? "",
       present: false,
     })),
     experiences: experiences.map((e) => ({
       role: e.role,
       company: e.company,
       description: e.description ?? "",
-      startDate: e.startDate ?? "",
-      endDate: e.endDate ?? "",
+      startDate: normalizeYearMonth(e.startDate) ?? "",
+      endDate: normalizeYearMonth(e.endDate) ?? "",
       present: false,
       technologies: (e.technologies ?? []).join(", "),
     })),
@@ -314,15 +327,83 @@ export function OnboardingWizard({
   }
 
   const currentStep = STEPS[step];
+  const CurrentStepIcon = currentStep.icon;
+  const stepItems = Object.fromEntries(STEPS.map((s, i) => [String(i), s.title]));
 
   return (
     <div className="flex w-full flex-1 flex-col md:flex-row">
-      <aside className="w-full border-b border-grid md:w-64 md:shrink-0 md:border-r md:border-b-0">
-        <div className="sticky top-(--header-height) flex flex-col gap-2 p-3 md:p-4">
-          <div className="hidden items-center px-2.5 py-1 text-xs font-medium text-muted-foreground md:flex">
+      {/* Mobile sticky step switcher */}
+      <div className="sticky top-(--header-height) z-30 border-b border-grid bg-background/95 backdrop-blur-sm md:hidden">
+        <div className="flex items-center gap-2 px-4 py-2.5 sm:px-6">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={step === 0}
+            onClick={() => goToStep(step - 1)}
+            aria-label="Previous section"
+          >
+            <ChevronLeftIcon />
+          </Button>
+
+          <Select
+            items={stepItems}
+            value={String(step)}
+            onValueChange={(val) => {
+              if (val !== null) goToStep(Number(val));
+            }}
+          >
+            <SelectTrigger className="min-w-0 flex-1" aria-label="Select section">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <CurrentStepIcon className="size-4 shrink-0 text-muted-foreground" />
+                <SelectValue />
+                <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
+                  {step + 1}/{STEPS.length}
+                </span>
+              </div>
+            </SelectTrigger>
+            <SelectContent align="center" alignItemWithTrigger={false}>
+              {STEPS.map((s, i) => {
+                const Icon = s.icon;
+                return (
+                  <SelectItem key={s.id} value={String(i)}>
+                    <Icon className="size-4 shrink-0 text-muted-foreground" />
+                    <span>{s.title}</span>
+                    <span className="ml-auto font-mono text-xs text-muted-foreground">
+                      {i + 1}/{STEPS.length}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={step === STEPS.length - 1}
+            onClick={() => goToStep(step + 1)}
+            aria-label="Next section"
+          >
+            <ChevronRightIcon />
+          </Button>
+        </div>
+        <div className="h-0.5 w-full bg-muted">
+          <div
+            className="h-full bg-foreground transition-all duration-300"
+            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Desktop sidebar navigation */}
+      <aside className="hidden border-r border-grid md:block md:w-64 md:shrink-0">
+        <div className="sticky top-(--header-height) flex flex-col gap-2 p-4">
+          <div className="flex items-center px-2.5 py-1 text-xs font-medium text-muted-foreground">
             <span>Sections</span>
           </div>
-          <nav aria-label="Progress" className="flex gap-1 overflow-x-auto md:flex-col">
+          <nav aria-label="Progress" className="flex flex-col gap-1">
             {STEPS.map((s, i) => {
               const isActive = i === step;
               const Icon = s.icon;

@@ -47,7 +47,7 @@ export function Header({ user }: HeaderProps) {
           {user && (
             <>
               <div className="hidden h-4 w-px bg-border sm:block" />
-              <div className="flex h-8 items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-2.5 dark:border-input dark:bg-input/20">
+              <div className="flex h-8 items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-1.5 sm:px-2.5 dark:border-input dark:bg-input/20">
                 <Avatar size="sm" className="size-5">
                   <AvatarImage
                     src={`https://avatars.githubusercontent.com/u/${user.githubId}`}
@@ -64,8 +64,13 @@ export function Header({ user }: HeaderProps) {
                 )}
               </div>
               <form action={signOut} className="flex items-center">
-                <Button type="submit" variant="ghost" className="text-muted-foreground">
-                  <LogOutIcon data-icon="inline-start" />
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  aria-label="Sign out"
+                  className="w-8 px-0 text-muted-foreground sm:w-auto sm:px-2.5"
+                >
+                  <LogOutIcon />
                   <span className="hidden sm:inline">Sign out</span>
                 </Button>
               </form>

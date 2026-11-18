@@ -34,9 +34,11 @@ export function ThemeSelect() {
         if (value) setTheme(value);
       }}
     >
-      <SelectTrigger aria-label="Theme" className="gap-1.5">
+      <SelectTrigger aria-label="Theme" className="gap-1.5 px-2 sm:px-2.5">
         <ContrastIcon className="size-3.5 text-muted-foreground" />
-        <SelectValue />
+        <span className="hidden sm:inline">
+          <SelectValue />
+        </span>
       </SelectTrigger>
       <SelectContent align="end">
         <SelectItem value="system">System</SelectItem>
