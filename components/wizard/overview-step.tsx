@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowLeftIcon, CodeIcon, FileTextIcon } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeftIcon, CodeIcon, FileTextIcon, Loader2Icon } from "lucide-react";
+import { toast } from "sonner";
 
-import type { WizardDraft } from "@/components/wizard/draft";
+import { flushWizardSyncs, type WizardDraft } from "@/components/wizard/draft";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,100 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-const FLUENCY_LABELS: Record<string, string> = {
-  native: "Native",
-  fluent: "Fluent",
-  advanced: "Advanced",
-  intermediate: "Intermediate",
-  basic: "Basic",
-};
-
-const LEVEL_LABELS: Record<string, string> = {
-  high_school: "High school",
-  bootcamp: "Bootcamp",
-  associate: "Associate",
-  bachelor: "Bachelor",
-  master: "Master",
-  phd: "PhD",
-  other: "Other",
-};
-
-type MonthRange = { start: number; end: number };
-
-function toMonthIndex(value: string): number | null {
-  const match = /^(\d{4})-(\d{2})$/.exec(value.trim());
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  if (month < 1 || month > 12) return null;
-  return year * 12 + (month - 1);
-}
-
-function getMonthRange(start: string, end: string, present: boolean): MonthRange | null {
-  const from = toMonthIndex(start);
-  if (from === null) return null;
-
-  let to: number | null = null;
-  if (present) {
-    const now = new Date();
-    to = now.getFullYear() * 12 + now.getMonth();
-  } else {
-    to = toMonthIndex(end);
-  }
-  if (to === null || to <= from) return null;
-
-  return { start: from, end: to };
-}
-
-function getMergedDurationMonths(ranges: (MonthRange | null)[]): number {
-  const valid = ranges
-    .filter((r): r is MonthRange => r !== null)
-    .toSorted((a, b) => a.start - b.start || a.end - b.end);
-
-  if (valid.length === 0) return 0;
-
-  let total = 0;
-  let currentStart = valid[0].start;
-  let currentEnd = valid[0].end;
-
-  for (let i = 1; i < valid.length; i++) {
-    const next = valid[i];
-    if (next.start <= currentEnd) {
-      currentEnd = Math.max(currentEnd, next.end);
-    } else {
-      total += currentEnd - currentStart;
-      currentStart = next.start;
-      currentEnd = next.end;
-    }
-  }
-
-  total += currentEnd - currentStart;
-  return total;
-}
-
-function formatDuration(totalMonths: number): string | null {
-  if (totalMonths <= 0) return null;
-  const years = Math.floor(totalMonths / 12);
-  const months = totalMonths % 12;
-  const parts: string[] = [];
-  if (years > 0) {
-    parts.push(`${years} ${years === 1 ? "yr" : "yrs"}`);
-  }
-  if (months > 0) {
-    parts.push(`${months} ${months === 1 ? "mo" : "mos"}`);
-  }
-  return parts.join(" ");
-}
-
-function formatDateRange(start: string, end: string, present: boolean) {
-  const from = start.trim();
-  const to = present ? "Present" : end.trim();
-  if (from && to) return `${from} — ${to}`;
-  if (from) return from;
-  if (to) return to;
-  return null;
-}
+import { buildPortfolioViewModel } from "@/lib/portfolio";
 
 export function OverviewStep({
   draft,
@@ -116,68 +25,67 @@ export function OverviewStep({
   onBack: () => void;
   onGoToStep: (stepIndex: number) => void;
 }) {
-  const fullName = [draft.profile.firstName, draft.profile.lastName]
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .join(" ");
+  const [generatingFormat, setGeneratingFormat] = useState<"pdf" | "html" | null>(null);
 
-  const languages = draft.languages.filter((l) => l.language.trim() !== "");
-  const education = draft.education.filter(
-    (e) => e.degree.trim() !== "" || e.university.trim() !== "",
-  );
-  const experiences = draft.experiences.filter(
-    (e) => e.role.trim() !== "" || e.company.trim() !== "",
-  );
-  const projects = draft.projects.filter(
-    (p) => p.name.trim() !== "" || p.link.trim() !== "" || p.description.trim() !== "",
-  );
-  const setups = draft.setup.filter((s) => s.name.trim() !== "" || s.description.trim() !== "");
+  const {
+    fullName,
+    email,
+    phone,
+    role,
+    location,
+    github,
+    linkedin,
+    languages,
+    education,
+    totalEducationDuration,
+    experiences,
+    totalExperienceDuration,
+    technologyTotals,
+    projects,
+    setups,
+  } = buildPortfolioViewModel(draft);
 
-  const educationRanges = education.map((e) => getMonthRange(e.startDate, e.endDate, e.present));
-  const totalEducationDuration =
-    educationRanges.filter(Boolean).length > 1
-      ? formatDuration(getMergedDurationMonths(educationRanges))
-      : null;
+  async function handleGenerateExport(format: "pdf" | "html") {
+    if (generatingFormat !== null) return;
+    const label = format.toUpperCase();
+    setGeneratingFormat(format);
+    try {
+      await flushWizardSyncs();
+      const response = await fetch(`/api/${format}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft }),
+      });
 
-  const experienceRanges = experiences.map((e) => getMonthRange(e.startDate, e.endDate, e.present));
-  const totalExperienceDuration =
-    experienceRanges.filter(Boolean).length > 1
-      ? formatDuration(getMergedDurationMonths(experienceRanges))
-      : null;
-
-  const technologyMap = new Map<string, { label: string; ranges: MonthRange[] }>();
-  experiences.forEach((exp, i) => {
-    const range = experienceRanges[i];
-    const seenInEntry = new Set<string>();
-    for (const raw of exp.technologies.split(",")) {
-      const label = raw.trim();
-      if (!label) continue;
-      const key = label.toLowerCase();
-      if (seenInEntry.has(key)) continue;
-      seenInEntry.add(key);
-
-      let entry = technologyMap.get(key);
-      if (!entry) {
-        entry = { label, ranges: [] };
-        technologyMap.set(key, entry);
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        toast.error(data?.error ?? `Failed to generate ${label}. Please try again.`);
+        return;
       }
-      if (range) {
-        entry.ranges.push(range);
-      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = filenameMatch?.[1] ?? `prezentme-${date}.${format}`;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success(`${label} generated.`);
+    } catch (error) {
+      console.error(`Failed to generate ${label}:`, error);
+      toast.error(`Failed to generate ${label}. Please try again.`);
+    } finally {
+      setGeneratingFormat(null);
     }
-  });
-
-  const technologyTotals = Array.from(technologyMap.entries())
-    .map(([key, { label, ranges }]) => {
-      const months = getMergedDurationMonths(ranges);
-      return {
-        key,
-        label,
-        months,
-        duration: formatDuration(months),
-      };
-    })
-    .toSorted((a, b) => b.months - a.months);
+  }
 
   return (
     <div className="grid gap-4">
@@ -201,33 +109,41 @@ export function OverviewStep({
           <div className="grid gap-1">
             <span className="text-xs text-muted-foreground">Role</span>
             <span className="text-sm font-medium text-foreground">
-              {draft.profile.role.trim() || (
-                <span className="text-muted-foreground">Not provided</span>
-              )}
+              {role || <span className="text-muted-foreground">Not provided</span>}
+            </span>
+          </div>
+          <div className="grid gap-1">
+            <span className="text-xs text-muted-foreground">Email</span>
+            <span className="text-sm text-foreground">
+              {email || <span className="text-muted-foreground">Not provided</span>}
+            </span>
+          </div>
+          <div className="grid gap-1">
+            <span className="text-xs text-muted-foreground">Phone</span>
+            <span className="text-sm text-foreground tabular-nums">
+              {phone || <span className="text-muted-foreground">Not provided</span>}
             </span>
           </div>
           <div className="grid gap-1">
             <span className="text-xs text-muted-foreground">Location</span>
             <span className="text-sm text-foreground">
-              {draft.profile.location.trim() || (
-                <span className="text-muted-foreground">Not provided</span>
-              )}
+              {location || <span className="text-muted-foreground">Not provided</span>}
             </span>
           </div>
           <div className="grid gap-1">
             <span className="text-xs text-muted-foreground">Links</span>
             <div className="flex flex-wrap gap-2 font-mono text-xs">
-              {draft.profile.github.trim() ? (
+              {github ? (
                 <span className="rounded-md bg-muted px-2 py-0.5 text-foreground">
-                  {draft.profile.github.replace(/^https?:\/\/(www\.)?/i, "")}
+                  {github.display}
                 </span>
               ) : null}
-              {draft.profile.linkedin.trim() ? (
+              {linkedin ? (
                 <span className="rounded-md bg-muted px-2 py-0.5 text-foreground">
-                  {draft.profile.linkedin.replace(/^https?:\/\/(www\.)?/i, "")}
+                  {linkedin.display}
                 </span>
               ) : null}
-              {!draft.profile.github.trim() && !draft.profile.linkedin.trim() && (
+              {!github && !linkedin && (
                 <span className="font-sans text-sm text-muted-foreground">Not provided</span>
               )}
             </div>
@@ -256,10 +172,8 @@ export function OverviewStep({
                   className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1 text-sm"
                 >
                   <span className="font-medium text-foreground">{l.language}</span>
-                  {l.fluency && (
-                    <span className="text-xs text-muted-foreground">
-                      {FLUENCY_LABELS[l.fluency] ?? l.fluency}
-                    </span>
+                  {l.fluencyLabel && (
+                    <span className="text-xs text-muted-foreground">{l.fluencyLabel}</span>
                   )}
                 </div>
               ))}
@@ -290,34 +204,29 @@ export function OverviewStep({
             <p className="text-sm text-muted-foreground">No education entries added.</p>
           ) : (
             <div className="grid divide-y divide-border/60">
-              {education.map((e, i) => {
-                const dates = formatDateRange(e.startDate, e.endDate, e.present);
-                const range = educationRanges[i];
-                const duration = range ? formatDuration(range.end - range.start) : null;
-                return (
-                  <div key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="text-sm font-medium text-foreground">
-                        {e.degree || "Untitled degree"}
+              {education.map((e, i) => (
+                <div key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground">
+                      {e.degree || "Untitled degree"}
+                    </span>
+                    {e.dates && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {e.dates}
+                        {e.duration ? ` · ${e.duration}` : ""}
                       </span>
-                      {dates && (
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {dates}
-                          {duration ? ` · ${duration}` : ""}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {e.university && <span>{e.university}</span>}
-                      {e.level && (
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-secondary-foreground">
-                          {LEVEL_LABELS[e.level] ?? e.level}
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
-                );
-              })}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {e.university && <span>{e.university}</span>}
+                    {e.levelLabel && (
+                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-secondary-foreground">
+                        {e.levelLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -345,36 +254,31 @@ export function OverviewStep({
             <p className="text-sm text-muted-foreground">No work experience added.</p>
           ) : (
             <div className="grid divide-y divide-border/60">
-              {experiences.map((exp, i) => {
-                const dates = formatDateRange(exp.startDate, exp.endDate, exp.present);
-                const range = experienceRanges[i];
-                const duration = range ? formatDuration(range.end - range.start) : null;
-                return (
-                  <div key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <div>
-                        <span className="text-sm font-medium text-foreground">
-                          {exp.role || "Untitled role"}
-                        </span>
-                        {exp.company && (
-                          <span className="text-sm text-muted-foreground"> · {exp.company}</span>
-                        )}
-                      </div>
-                      {dates && (
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {dates}
-                          {duration ? ` · ${duration}` : ""}
-                        </span>
+              {experiences.map((exp, i) => (
+                <div key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">
+                        {exp.role || "Untitled role"}
+                      </span>
+                      {exp.company && (
+                        <span className="text-sm text-muted-foreground"> · {exp.company}</span>
                       )}
                     </div>
-                    {exp.description.trim() && (
-                      <p className="text-sm whitespace-pre-line text-muted-foreground">
-                        {exp.description}
-                      </p>
+                    {exp.dates && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {exp.dates}
+                        {exp.duration ? ` · ${exp.duration}` : ""}
+                      </span>
                     )}
                   </div>
-                );
-              })}
+                  {exp.description && (
+                    <p className="text-sm whitespace-pre-line text-muted-foreground">
+                      {exp.description}
+                    </p>
+                  )}
+                </div>
+              ))}
               {technologyTotals.length > 0 && (
                 <div className="grid gap-2 pt-3 first:pt-0">
                   <span className="text-xs font-medium text-muted-foreground">Technologies</span>
@@ -419,11 +323,11 @@ export function OverviewStep({
                     <span className="text-sm font-medium text-foreground">
                       {proj.name || "Untitled project"}
                     </span>
-                    {proj.link.trim() && (
+                    {proj.link && (
                       <span className="font-mono text-xs text-muted-foreground">{proj.link}</span>
                     )}
                   </div>
-                  {proj.description.trim() && (
+                  {proj.description && (
                     <p className="text-sm whitespace-pre-line text-muted-foreground">
                       {proj.description}
                     </p>
@@ -455,7 +359,7 @@ export function OverviewStep({
                   <span className="text-sm font-medium text-foreground">
                     {item.name || "Untitled item"}
                   </span>
-                  {item.description.trim() && (
+                  {item.description && (
                     <p className="text-sm whitespace-pre-line text-muted-foreground">
                       {item.description}
                     </p>
@@ -473,13 +377,40 @@ export function OverviewStep({
           Back
         </Button>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline">
-            <FileTextIcon data-icon="inline-start" />
-            Generate PDF
+          <Button
+            type="button"
+            variant="outline"
+            disabled={generatingFormat !== null}
+            onClick={() => handleGenerateExport("pdf")}
+          >
+            {generatingFormat === "pdf" ? (
+              <>
+                <Loader2Icon data-icon="inline-start" className="animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <FileTextIcon data-icon="inline-start" />
+                Generate PDF
+              </>
+            )}
           </Button>
-          <Button type="button">
-            <CodeIcon data-icon="inline-start" />
-            Generate HTML
+          <Button
+            type="button"
+            disabled={generatingFormat !== null}
+            onClick={() => handleGenerateExport("html")}
+          >
+            {generatingFormat === "html" ? (
+              <>
+                <Loader2Icon data-icon="inline-start" className="animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <CodeIcon data-icon="inline-start" />
+                Generate HTML
+              </>
+            )}
           </Button>
         </div>
       </div>
