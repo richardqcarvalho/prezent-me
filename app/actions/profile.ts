@@ -21,6 +21,8 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileSt
 
   const firstName = (formData.get("firstName") as string)?.trim() || null;
   const lastName = (formData.get("lastName") as string)?.trim() || null;
+  const email = (formData.get("email") as string)?.trim() || null;
+  const phone = (formData.get("phone") as string)?.trim() || null;
   const location = (formData.get("location") as string)?.trim() || null;
   const role = (formData.get("role") as string)?.trim() || null;
   const github = (formData.get("github") as string)?.trim() || null;
@@ -29,7 +31,17 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileSt
   try {
     await db
       .update(users)
-      .set({ firstName, lastName, location, role, github, linkedin, updatedAt: new Date() })
+      .set({
+        firstName,
+        lastName,
+        email,
+        phone,
+        location,
+        role,
+        github,
+        linkedin,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, user.id));
 
     revalidatePath("/");

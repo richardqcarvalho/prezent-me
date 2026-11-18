@@ -9,6 +9,7 @@ import { education, experiences, languages, projects, setups, users } from "@/li
 import {
   isEducationLevel,
   isFluencyLevel,
+  normalizeYearMonth,
   type EducationLevel,
   type FluencyLevel,
 } from "@/lib/constants";
@@ -34,6 +35,8 @@ export type ExportedData = {
   profile: {
     firstName: string | null;
     lastName: string | null;
+    email: string | null;
+    phone: string | null;
     location: string | null;
     role: string | null;
     github: string | null;
@@ -87,8 +90,7 @@ async function requireUserId() {
 }
 
 function parseMonth(value: FormDataEntryValue | null) {
-  const raw = (value as string)?.trim() || "";
-  return /^\d{4}-\d{2}$/.test(raw) ? raw : null;
+  return normalizeYearMonth(typeof value === "string" ? value : null);
 }
 
 export async function saveLanguages(formData: FormData): Promise<ActionState> {
@@ -344,8 +346,7 @@ function cleanNullableString(value: unknown, maxLength?: number): string | null 
 }
 
 function parseMonthUnknown(value: unknown): string | null {
-  const cleaned = cleanString(value);
-  return /^\d{4}-\d{2}$/.test(cleaned) ? cleaned : null;
+  return normalizeYearMonth(cleanString(value));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -379,6 +380,8 @@ export async function exportUserData(): Promise<ExportActionResult> {
       profile: {
         firstName: user.firstName,
         lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
         location: user.location,
         role: user.role,
         github: user.github,
@@ -396,15 +399,15 @@ export async function exportUserData(): Promise<ExportActionResult> {
           degree: e.degree,
           level: e.level,
           university: e.university,
-          startDate: e.startDate,
-          endDate: e.endDate,
+          startDate: normalizeYearMonth(e.startDate),
+          endDate: normalizeYearMonth(e.endDate),
         })),
       experiences: userExperiences.map((e) => ({
         role: e.role,
         company: e.company,
         description: e.description,
-        startDate: e.startDate,
-        endDate: e.endDate,
+        startDate: normalizeYearMonth(e.startDate),
+        endDate: normalizeYearMonth(e.endDate),
         technologies: e.technologies ?? [],
       })),
       projects: userProjects.map((p) => ({
@@ -460,6 +463,8 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
   const profileObj = isPlainObject(rawProfile) ? rawProfile : {};
   const firstName = cleanNullableString(profileObj.firstName, 100);
   const lastName = cleanNullableString(profileObj.lastName, 100);
+  const email = cleanNullableString(profileObj.email, 255);
+  const phone = cleanNullableString(profileObj.phone, 50);
   const location = cleanNullableString(profileObj.location);
   const role = cleanNullableString(profileObj.role, 100);
   const github = cleanNullableString(profileObj.github, 255);
@@ -600,7 +605,17 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
     await db.batch([
       db
         .update(users)
-        .set({ firstName, lastName, location, role, github, linkedin, updatedAt: now })
+        .set({
+          firstName,
+          lastName,
+          email,
+          phone,
+          location,
+          role,
+          github,
+          linkedin,
+          updatedAt: now,
+        })
         .where(eq(users.id, userId)),
       db.delete(languages).where(eq(languages.userId, userId)),
       ...(languageRows.length > 0
@@ -661,6 +676,8 @@ export async function importUserData(raw: unknown): Promise<ImportActionResult> 
       profile: {
         firstName: firstName ?? "",
         lastName: lastName ?? "",
+        email: email ?? "",
+        phone: phone ?? "",
         location: location ?? "",
         role: role ?? "",
         github: github ?? "",

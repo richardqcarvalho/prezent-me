@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     id: number;
     login: string;
     name: string | null;
+    email: string | null;
     location: string | null;
   };
 
@@ -57,6 +58,7 @@ export async function GET(request: Request) {
     githubId: String(profile.id),
     login: profile.login,
     name: profile.name,
+    email: profile.email,
     location: profile.location,
   });
 

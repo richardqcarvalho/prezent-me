@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowRightIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,21 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ProfileDraft } from "@/components/wizard/draft";
+import {
+  applyPhoneMask,
+  formatPhoneValue,
+  getPhoneCountryByIso,
+  parsePhoneValue,
+  PHONE_COUNTRIES,
+} from "@/lib/constants";
 
 const GITHUB_PREFIX = "https://github.com/";
 const LINKEDIN_PREFIX = "https://linkedin.com/in/";
@@ -24,6 +39,10 @@ function stripPrefix(value: string, pattern: RegExp) {
 
 const GITHUB_PATTERN = /^(https?:\/\/)?(www\.)?github\.com\//i;
 const LINKEDIN_PATTERN = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\//i;
+
+const PHONE_TRIGGER_ITEMS = Object.fromEntries(
+  PHONE_COUNTRIES.map((c) => [c.iso, `${c.iso} ${c.dialCode}`]),
+);
 
 type ProfileFormProps = {
   value: ProfileDraft;
@@ -36,6 +55,16 @@ export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: P
   const githubHandle = stripPrefix(value.github, GITHUB_PATTERN);
   const linkedinHandle = stripPrefix(value.linkedin, LINKEDIN_PATTERN);
 
+  const parsedPhone = parsePhoneValue(value.phone ?? "");
+  const [countryIso, setCountryIso] = useState(parsedPhone.countryIso);
+  const selectedCountry = getPhoneCountryByIso(countryIso);
+  const activeCountryIso =
+    (value.phone ?? "").trim() && parsedPhone.dialCode !== selectedCountry.dialCode
+      ? parsedPhone.countryIso
+      : countryIso;
+  const activeCountry = getPhoneCountryByIso(activeCountryIso);
+  const maskedLocalNumber = applyPhoneMask(activeCountryIso, parsedPhone.localNumber);
+
   return (
     <form
       onSubmit={(e) => {
@@ -47,7 +76,7 @@ export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: P
         <CardHeader className="border-b">
           <CardTitle>Personal information</CardTitle>
           <CardDescription>
-            How your name, headline role, and social profiles appear publicly.
+            How your name, contact details, headline role, and social profiles appear publicly.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5">
@@ -71,6 +100,71 @@ export function ProfileForm({ value, onChange, submitLabel = "Save", onNext }: P
                 placeholder="Lovelace"
                 maxLength={100}
               />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={value.email ?? ""}
+                onChange={(e) => onChange({ email: e.target.value })}
+                placeholder="ada@example.com"
+                maxLength={255}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone number</Label>
+              <div className="flex items-center gap-2">
+                <Select
+                  items={PHONE_TRIGGER_ITEMS}
+                  value={activeCountryIso}
+                  onValueChange={(nextIso) => {
+                    if (!nextIso) return;
+                    setCountryIso(nextIso);
+                    if (parsedPhone.localNumber.trim()) {
+                      onChange({ phone: formatPhoneValue(nextIso, parsedPhone.localNumber) });
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-28 shrink-0 font-mono text-xs"
+                    aria-label="Country code"
+                  >
+                    <SelectValue placeholder="Code" />
+                  </SelectTrigger>
+                  <SelectContent className="min-w-56" align="start" alignItemWithTrigger={false}>
+                    {PHONE_COUNTRIES.map((country) => (
+                      <SelectItem key={country.iso} value={country.iso}>
+                        <span>{country.name}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {country.dialCode}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  value={maskedLocalNumber}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw.trimStart().startsWith("+")) {
+                      const pasted = parsePhoneValue(raw);
+                      setCountryIso(pasted.countryIso);
+                      onChange({ phone: formatPhoneValue(pasted.countryIso, pasted.localNumber) });
+                      return;
+                    }
+                    onChange({ phone: formatPhoneValue(activeCountryIso, raw) });
+                  }}
+                  placeholder={activeCountry.placeholder}
+                  maxLength={32}
+                />
+              </div>
             </div>
           </div>
 

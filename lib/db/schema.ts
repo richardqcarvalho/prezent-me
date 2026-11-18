@@ -6,6 +6,8 @@ export const users = pgTable("users", {
   githubLogin: varchar("github_login", { length: 255 }),
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
   location: text("location"),
   role: varchar("role", { length: 100 }),
   github: varchar("github", { length: 255 }),

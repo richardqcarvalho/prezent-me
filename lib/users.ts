@@ -7,6 +7,7 @@ type GitHubProfile = {
   githubId: string;
   login: string | null;
   name: string | null;
+  email?: string | null;
   location: string | null;
 };
 
@@ -20,6 +21,7 @@ export async function upsertGitHubUser(profile: GitHubProfile) {
       githubLogin: profile.login,
       firstName: firstName || null,
       lastName: rest.join(" ") || null,
+      email: profile.email || null,
       location: profile.location,
       github: profile.login ? `https://github.com/${profile.login}` : null,
     })

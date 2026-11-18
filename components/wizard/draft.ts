@@ -1,6 +1,8 @@
 export type ProfileDraft = {
   firstName: string;
   lastName: string;
+  email: string;
+  phone: string;
   location: string;
   role: string;
   github: string;
@@ -164,9 +166,11 @@ export function buildStepFormData(id: WizardStepId, draft: WizardDraft): FormDat
 
   switch (id) {
     case "profile": {
-      const { firstName, lastName, location, role, github, linkedin } = draft.profile;
+      const { firstName, lastName, email, phone, location, role, github, linkedin } = draft.profile;
       fd.set("firstName", firstName);
       fd.set("lastName", lastName);
+      fd.set("email", email);
+      fd.set("phone", phone);
       fd.set("location", location);
       fd.set("role", role);
       fd.set("github", github);

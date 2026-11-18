@@ -43,6 +43,13 @@
       "when": 1794755187170,
       "tag": "0005_orange_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794940800027,
+      "tag": "0006_minor_quentin_quire",
+      "breakpoints": true
     }
   ]
 }

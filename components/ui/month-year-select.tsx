@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { normalizeYearMonth } from "@/lib/constants";
 
 const MONTHS = [
   "January",
@@ -51,7 +52,8 @@ export function MonthYearSelect({
   present = false,
   onPresentChange,
 }: MonthYearSelectProps) {
-  const [initialYear = "", initialMonth = ""] = value.split("-");
+  const normalizedInitial = normalizeYearMonth(value) ?? value;
+  const [initialYear = "", initialMonth = ""] = normalizedInitial.split(/[/-]/);
   const [month, setMonth] = useState(initialMonth);
   const [year, setYear] = useState(initialYear);
 
@@ -59,7 +61,7 @@ export function MonthYearSelect({
     setMonth(nextMonth);
     setYear(nextYear);
     if (nextMonth !== "" && nextYear !== "") {
-      onChange(`${nextYear}-${nextMonth}`);
+      onChange(`${nextYear}/${nextMonth}`);
     }
   }
 
@@ -79,7 +81,11 @@ export function MonthYearSelect({
           </label>
         )}
       </div>
-      <input type="hidden" name={name} value={present ? "" : value} />
+      <input
+        type="hidden"
+        name={name}
+        value={present ? "" : (normalizeYearMonth(value) ?? value)}
+      />
       <div className="grid grid-cols-2 gap-2">
         <Select
           items={MONTH_ITEMS}
