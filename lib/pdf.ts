@@ -1,29 +1,143 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, PDFString, rgb, type Color, type PDFFont, type PDFPage } from "pdf-lib";
+import {
+  LineCapStyle,
+  PDFDocument,
+  PDFString,
+  rgb,
+  type Color,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 
 import type { WizardDraft } from "@/components/wizard/draft";
 import { buildPortfolioViewModel } from "@/lib/portfolio";
 
 const PAGE_WIDTH = 595.28; // A4 width in pt
 const PAGE_HEIGHT = 841.89; // A4 height in pt
-const MARGIN_X = 44;
-const MARGIN_TOP = 42;
-const MARGIN_BOTTOM = 54;
+const MARGIN_X = 40;
+const MARGIN_TOP = 36;
+const MARGIN_BOTTOM = 48;
+const FOOTER_LINE_Y = 34;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
+const MAX_PAGE_CONTENT_HEIGHT = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM;
+
+const BAND_PAD_Y = 20;
+const CARD_RADIUS = 8.5;
+const CARD_PAD_X = 14;
+const CARD_PAD_Y = 12;
 
 const COLORS = {
-  background: rgb(1, 1, 1),
-  foreground: rgb(0.09, 0.09, 0.09), // #171717
-  secondaryForeground: rgb(0.16, 0.16, 0.16), // #292929
-  body: rgb(0.26, 0.26, 0.26), // #424242
-  mutedForeground: rgb(0.45, 0.45, 0.45), // #737373
-  muted: rgb(0.955, 0.955, 0.955), // #F4F4F4
-  chipBg: rgb(0.98, 0.98, 0.98), // #FAFAFA
-  border: rgb(0.895, 0.895, 0.895), // #E4E4E4
-  divider: rgb(0.925, 0.925, 0.925), // #ECECEC
+  background: rgb(1, 1, 1), // #FFFFFF
+  surfaceMuted: rgb(0.982, 0.982, 0.982), // #FAFAFA
+  foreground: rgb(0.06, 0.06, 0.06), // #0F0F0F
+  primary: rgb(0.09, 0.09, 0.09), // #171717
+  primaryForeground: rgb(0.985, 0.985, 0.985), // #FBFBFB
+  secondary: rgb(0.957, 0.957, 0.957), // #F4F4F4
+  secondaryForeground: rgb(0.14, 0.14, 0.14), // #242424
+  muted: rgb(0.957, 0.957, 0.957), // #F4F4F4
+  mutedForeground: rgb(0.451, 0.451, 0.451), // #737373
+  pillBg: rgb(0.984, 0.984, 0.984), // #FBFBFB
+  cardFooterBg: rgb(0.978, 0.978, 0.978), // #F9F9F9
+  border: rgb(0.898, 0.898, 0.898), // #E5E5E5
+  borderGrid: rgb(0.925, 0.925, 0.925), // #ECECEC
+  ringCard: rgb(0.895, 0.895, 0.895), // #E4E4E4
 };
+
+type IconDef = {
+  mode: "fill" | "stroke";
+  paths: string[];
+};
+
+const ICONS: Record<
+  | "github"
+  | "linkedin"
+  | "mail"
+  | "phone"
+  | "mapPin"
+  | "briefcase"
+  | "code"
+  | "graduation"
+  | "languages"
+  | "laptop",
+  IconDef
+> = {
+  github: {
+    mode: "fill",
+    paths: [
+      "M 12 .5 C 5.37 .5 0 5.87 0 12.5 c 0 5.3 3.438 9.8 8.205 11.387 .6 .113 .82 -.258 .82 -.577 0 -.285 -.01 -1.04 -.015 -2.04 -3.338 .724 -4.042 -1.61 -4.042 -1.61 -.546 -1.387 -1.333 -1.756 -1.333 -1.756 -1.09 -.744 .083 -.729 .083 -.729 1.205 .085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495 .998 .108 -.776 .418 -1.305 .762 -1.605 -2.665 -.305 -5.467 -1.334 -5.467 -5.93 0 -1.31 .468 -2.382 1.236 -3.222 -.124 -.303 -.535 -1.524 .117 -3.176 0 0 1.008 -.322 3.301 1.23 A 11.5 11.5 0 0 1 12 6.3 c 1.02 .005 2.047 .138 3.006 .404 2.291 -1.552 3.297 -1.23 3.297 -1.23 .653 1.653 .242 2.874 .118 3.176 .77 .84 1.235 1.912 1.235 3.222 0 4.609 -2.807 5.622 -5.479 5.921 .43 .372 .823 1.102 .823 2.222 0 1.606 -.014 2.9 -.014 3.293 0 .322 .216 .696 .825 .578 C 20.565 22.295 24 17.8 24 12.5 24 5.87 18.627 .5 12 .5 Z",
+    ],
+  },
+  linkedin: {
+    mode: "stroke",
+    paths: [
+      "M 16 8 a 6 6 0 0 1 6 6 v 7 h -4 v -7 a 2 2 0 0 0 -2 -2 a 2 2 0 0 0 -2 2 v 7 h -4 v -7 a 6 6 0 0 1 6 -6 z",
+      "M 2 9 H 6 V 21 H 2 Z",
+      "M 2 4 A 2 2 0 1 0 6 4 A 2 2 0 1 0 2 4 Z",
+    ],
+  },
+  mail: {
+    mode: "stroke",
+    paths: [
+      "M 4 4 H 20 Q 22 4 22 6 V 18 Q 22 20 20 20 H 4 Q 2 20 2 18 V 6 Q 2 4 4 4 Z",
+      "M 22 7 l -8.97 5.7 a 1.94 1.94 0 0 1 -2.06 0 L 2 7",
+    ],
+  },
+  phone: {
+    mode: "stroke",
+    paths: [
+      "M 22 16.92 v 3 a 2 2 0 0 1 -2.18 2 a 19.79 19.79 0 0 1 -8.63 -3.07 a 19.5 19.5 0 0 1 -6 -6 a 19.79 19.79 0 0 1 -3.07 -8.67 A 2 2 0 0 1 4.11 2 h 3 a 2 2 0 0 1 2 1.72 a 12.84 12.84 0 0 0 .7 2.81 a 2 2 0 0 1 -.45 2.11 L 8.09 9.91 a 16 16 0 0 0 6 6 l 1.27 -1.27 a 2 2 0 0 1 2.11 -.45 a 12.84 12.84 0 0 0 2.81 .7 A 2 2 0 0 1 22 16.92 z",
+    ],
+  },
+  mapPin: {
+    mode: "stroke",
+    paths: [
+      "M 20 10 c 0 4.993 -5.539 10.193 -7.399 11.799 a 1 1 0 0 1 -1.202 0 C 9.539 20.193 4 14.993 4 10 a 8 8 0 0 1 16 0",
+      "M 9 10 A 3 3 0 1 0 15 10 A 3 3 0 1 0 9 10 Z",
+    ],
+  },
+  briefcase: {
+    mode: "stroke",
+    paths: [
+      "M 16 20 V 4 a 2 2 0 0 0 -2 -2 h -4 a 2 2 0 0 0 -2 2 v 16",
+      "M 4 6 H 20 Q 22 6 22 8 V 18 Q 22 20 20 20 H 4 Q 2 20 2 18 V 8 Q 2 6 4 6 Z",
+    ],
+  },
+  code: {
+    mode: "stroke",
+    paths: ["M 18 16 l 4 -4 l -4 -4", "M 6 8 l -4 4 l 4 4", "M 14.5 4 l -5 16"],
+  },
+  graduation: {
+    mode: "stroke",
+    paths: [
+      "M 21.42 10.922 a 1 1 0 0 0 -.019 -1.838 L 12.83 5.18 a 2 2 0 0 0 -1.66 0 L 2.6 9.08 a 1 1 0 0 0 0 1.832 l 8.57 3.908 a 2 2 0 0 0 1.66 0 z",
+      "M 22 10 v 6",
+      "M 6 12.5 V 16 a 6 3 0 0 0 12 0 v -3.5",
+    ],
+  },
+  languages: {
+    mode: "stroke",
+    paths: [
+      "M 5 8 l 6 6",
+      "M 4 14 l 6 -6 l 2 -3",
+      "M 2 5 h 12",
+      "M 7 2 h 1",
+      "M 22 22 l -5 -10 l -5 10",
+      "M 14 18 h 6",
+    ],
+  },
+  laptop: {
+    mode: "stroke",
+    paths: [
+      "M 20 16 V 7 a 2 2 0 0 0 -2 -2 H 6 a 2 2 0 0 0 -2 2 v 9",
+      "M 20 16 H 4",
+      "M 20 16 l 1.28 2.55 a 1 1 0 0 1 -.9 1.45 H 3.62 a 1 1 0 0 1 -.9 -1.45 L 4 16",
+    ],
+  },
+};
+
+type IconName = keyof typeof ICONS;
 
 type FontBundle = {
   sansRegular: Uint8Array;
@@ -53,6 +167,19 @@ function loadFontBytes(): Promise<FontBundle> {
     }));
   }
   return cachedFontBytes;
+}
+
+function safeHttpUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeForFont(text: string, font: PDFFont): string {
@@ -135,6 +262,14 @@ function wrapTextLines(text: string, font: PDFFont, fontSize: number, maxWidth: 
   return lines;
 }
 
+function measureLinesHeight(lines: string[], lineHeight: number, blankLineHeight = 5): number {
+  let total = 0;
+  for (const line of lines) {
+    total += line ? lineHeight : blankLineHeight;
+  }
+  return total;
+}
+
 function truncateToWidth(text: string, font: PDFFont, fontSize: number, maxWidth: number): string {
   const safe = sanitizeForFont(text, font);
   if (font.widthOfTextAtSize(safe, fontSize) <= maxWidth) return safe;
@@ -176,6 +311,64 @@ function drawRoundedRect(
   });
 }
 
+function drawBottomRoundedRect(
+  page: PDFPage,
+  options: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    radius: number;
+    color: Color;
+  },
+) {
+  const { x, y, width: w, height: h, color } = options;
+  const r = Math.min(options.radius, w / 2, h / 2);
+  const svgPath = `M 0 0 H ${w} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} Z`;
+
+  page.drawSvgPath(svgPath, {
+    x,
+    y: y + h,
+    color,
+  });
+}
+
+function drawIcon(
+  page: PDFPage,
+  name: IconName,
+  options: {
+    x: number;
+    y: number; // bottom edge of icon box
+    size: number;
+    color: Color;
+    strokeWidth?: number;
+  },
+) {
+  const icon = ICONS[name];
+  const scale = options.size / 24;
+  const topY = options.y + options.size;
+
+  for (const d of icon.paths) {
+    if (icon.mode === "fill") {
+      page.drawSvgPath(d, {
+        x: options.x,
+        y: topY,
+        scale,
+        color: options.color,
+      });
+    } else {
+      page.drawSvgPath(d, {
+        x: options.x,
+        y: topY,
+        scale,
+        borderColor: options.color,
+        borderWidth: options.strokeWidth ?? 2,
+        borderLineCap: LineCapStyle.Round,
+      });
+    }
+  }
+}
+
 function addLinkAnnotation(
   page: PDFPage,
   uri: string,
@@ -200,6 +393,39 @@ function addLinkAnnotation(
   page.node.addAnnot(linkRef);
 }
 
+type PillRow<T> = {
+  items: T[];
+  totalWidth: number;
+};
+
+function groupIntoRows<T extends { width: number }>(
+  items: T[],
+  maxWidth: number,
+  gapX: number,
+): PillRow<T>[] {
+  const rows: PillRow<T>[] = [];
+  let current: T[] = [];
+  let width = 0;
+
+  for (const item of items) {
+    const nextWidth = current.length === 0 ? item.width : width + gapX + item.width;
+    if (current.length > 0 && nextWidth > maxWidth) {
+      rows.push({ items: current, totalWidth: width });
+      current = [item];
+      width = item.width;
+    } else {
+      current.push(item);
+      width = nextWidth;
+    }
+  }
+
+  if (current.length > 0) {
+    rows.push({ items: current, totalWidth: width });
+  }
+
+  return rows;
+}
+
 export async function generatePortfolioPdf(draft: WizardDraft): Promise<Uint8Array> {
   const vm = buildPortfolioViewModel(draft);
   const pdfDoc = await PDFDocument.create();
@@ -207,15 +433,14 @@ export async function generatePortfolioPdf(draft: WizardDraft): Promise<Uint8Arr
 
   const fontBytes = await loadFontBytes();
   const fontOptions = { features: { liga: false, clig: false, calt: false } };
-  const [sansRegular, sansMedium, sansSemiBold, sansBold, monoRegular] = await Promise.all([
+  const [sansRegular, sansMedium, sansSemiBold, monoRegular] = await Promise.all([
     pdfDoc.embedFont(fontBytes.sansRegular, fontOptions),
     pdfDoc.embedFont(fontBytes.sansMedium, fontOptions),
     pdfDoc.embedFont(fontBytes.sansSemiBold, fontOptions),
-    pdfDoc.embedFont(fontBytes.sansBold, fontOptions),
     pdfDoc.embedFont(fontBytes.monoRegular, fontOptions),
   ]);
 
-  const titleName = vm.fullName || "Developer Profile";
+  const titleName = vm.fullName || "Developer Portfolio";
   pdfDoc.setTitle(`${titleName} — /prezent-me`);
   pdfDoc.setCreator("/prezent-me");
   pdfDoc.setProducer("/prezent-me PDF Generator");
@@ -223,11 +448,36 @@ export async function generatePortfolioPdf(draft: WizardDraft): Promise<Uint8Arr
   const pages: PDFPage[] = [];
   let currentPage!: PDFPage;
   let cursorY = 0;
+  let currentBandMuted = false;
 
   function addNewPage() {
+    if (pages.length > 0 && currentBandMuted && cursorY > FOOTER_LINE_Y) {
+      fillBandSlice(cursorY, FOOTER_LINE_Y);
+    }
     currentPage = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     pages.push(currentPage);
     cursorY = PAGE_HEIGHT - MARGIN_TOP;
+    if (currentBandMuted) {
+      fillBandSlice(PAGE_HEIGHT, cursorY);
+    }
+  }
+
+  function fillBandSlice(yTop: number, yBottom: number) {
+    if (!currentBandMuted || yTop <= yBottom) return;
+    currentPage.drawRectangle({
+      x: 0,
+      y: yBottom,
+      width: PAGE_WIDTH,
+      height: yTop - yBottom,
+      color: COLORS.surfaceMuted,
+    });
+  }
+
+  function advanceCursor(delta: number) {
+    if (delta <= 0) return;
+    const nextY = cursorY - delta;
+    fillBandSlice(cursorY, nextY);
+    cursorY = nextY;
   }
 
   function ensureSpace(requiredHeight: number): boolean {
@@ -238,727 +488,1271 @@ export async function generatePortfolioPdf(draft: WizardDraft): Promise<Uint8Arr
     return false;
   }
 
-  addNewPage();
+  function drawBandDivider() {
+    currentPage.drawLine({
+      start: { x: 0, y: cursorY },
+      end: { x: PAGE_WIDTH, y: cursorY },
+      thickness: 0.75,
+      color: COLORS.borderGrid,
+    });
+  }
 
-  // =========================================================================
-  // 1. DOCUMENT HEADER (Profile & Contact Links)
-  // =========================================================================
-  {
-    const displayName = truncateToWidth(
-      vm.fullName || "Developer Profile",
-      sansSemiBold,
-      22,
-      CONTENT_WIDTH,
-    );
-    currentPage.drawText(displayName, {
-      x: MARGIN_X,
-      y: cursorY - 18,
+  function drawIconBox(x: number, bottomY: number, icon: IconName) {
+    const boxSize = 20;
+    const iconSize = 10.5;
+    drawRoundedRect(currentPage, {
+      x,
+      y: bottomY,
+      width: boxSize,
+      height: boxSize,
+      radius: 5,
+      color: COLORS.muted,
+    });
+    drawIcon(currentPage, icon, {
+      x: x + (boxSize - iconSize) / 2,
+      y: bottomY + (boxSize - iconSize) / 2,
+      size: iconSize,
+      color: COLORS.foreground,
+      strokeWidth: 2,
+    });
+  }
+
+  function measureMonoBadge(text: string): { label: string; width: number; height: number } {
+    const label = sanitizeForFont(text, monoRegular);
+    const textW = monoRegular.widthOfTextAtSize(label, 7.6);
+    return { label, width: textW + 10, height: 15 };
+  }
+
+  function drawMonoBadge(
+    x: number,
+    bottomY: number,
+    badge: { label: string; width: number; height: number },
+  ) {
+    drawRoundedRect(currentPage, {
+      x,
+      y: bottomY,
+      width: badge.width,
+      height: badge.height,
+      radius: 4,
+      color: COLORS.muted,
+    });
+    currentPage.drawText(badge.label, {
+      x: x + 5,
+      y: bottomY + 4.7,
+      font: monoRegular,
+      size: 7.6,
+      color: COLORS.mutedForeground,
+    });
+  }
+
+  function drawSectionHeader(options: {
+    title: string;
+    subtitle: string;
+    icon?: IconName;
+    badgeText?: string | null;
+  }) {
+    const subtitleLines = wrapTextLines(options.subtitle, sansRegular, 8.8, CONTENT_WIDTH);
+    const titleRowH = options.icon ? 20 : 18;
+    const subtitleH = subtitleLines.length > 0 ? 4 + measureLinesHeight(subtitleLines, 12.5) : 0;
+    const totalH = titleRowH + subtitleH + 14;
+
+    fillBandSlice(cursorY, cursorY - totalH);
+
+    let titleX = MARGIN_X;
+    const titleRowBottomY = cursorY - titleRowH;
+
+    if (options.icon) {
+      drawIconBox(titleX, titleRowBottomY, options.icon);
+      titleX += 20 + 7;
+    }
+
+    const safeTitle = sanitizeForFont(options.title, sansSemiBold);
+    const titleSize = 14;
+    const titleBaselineY = titleRowBottomY + (options.icon ? 5 : 3);
+    currentPage.drawText(safeTitle, {
+      x: titleX,
+      y: titleBaselineY,
       font: sansSemiBold,
-      size: 22,
+      size: titleSize,
       color: COLORS.foreground,
     });
-    cursorY -= 24;
 
-    if (vm.role) {
-      const safeRole = truncateToWidth(vm.role, sansMedium, 11.5, CONTENT_WIDTH);
-      currentPage.drawText(safeRole, {
-        x: MARGIN_X,
-        y: cursorY - 11,
-        font: sansMedium,
-        size: 11.5,
-        color: COLORS.mutedForeground,
-      });
-      cursorY -= 17;
+    if (options.badgeText) {
+      const titleW = sansSemiBold.widthOfTextAtSize(safeTitle, titleSize);
+      const badge = measureMonoBadge(options.badgeText);
+      drawMonoBadge(titleX + titleW + 7, titleRowBottomY + (titleRowH - badge.height) / 2, badge);
     }
 
-    const hasMetaRow = Boolean(vm.location || vm.email || vm.phone || vm.github || vm.linkedin);
-    if (hasMetaRow) {
+    cursorY = titleRowBottomY;
+
+    if (subtitleLines.length > 0) {
       cursorY -= 4;
-      let pillX = MARGIN_X;
-      const pillHeight = 18;
-      let pillY = cursorY - pillHeight;
-
-      const metaFontSize = 8.5;
-      const metaPills: {
-        label: string;
-        bg: Color;
-        textColor: Color;
-        href?: string;
-      }[] = [];
-
-      if (vm.location) {
-        metaPills.push({
-          label: truncateToWidth(vm.location, sansRegular, metaFontSize, 220),
-          bg: COLORS.chipBg,
-          textColor: COLORS.secondaryForeground,
-        });
-      }
-
-      if (vm.email) {
-        metaPills.push({
-          label: truncateToWidth(vm.email, sansRegular, metaFontSize, 210),
-          bg: COLORS.chipBg,
-          textColor: COLORS.secondaryForeground,
-          href: `mailto:${vm.email}`,
-        });
-      }
-
-      if (vm.phone) {
-        const telDigits = vm.phone.replace(/\D/g, "");
-        metaPills.push({
-          label: truncateToWidth(vm.phone, sansRegular, metaFontSize, 180),
-          bg: COLORS.chipBg,
-          textColor: COLORS.secondaryForeground,
-          href: telDigits ? `tel:${vm.phone.startsWith("+") ? "+" : ""}${telDigits}` : undefined,
-        });
-      }
-
-      for (const linkItem of [vm.github, vm.linkedin]) {
-        if (!linkItem) continue;
-        metaPills.push({
-          label: truncateToWidth(linkItem.display, sansRegular, metaFontSize, 210),
-          bg: COLORS.muted,
-          textColor: COLORS.foreground,
-          href: linkItem.href,
-        });
-      }
-
-      for (const pill of metaPills) {
-        const textW = sansRegular.widthOfTextAtSize(pill.label, metaFontSize);
-        const pillW = textW + 14;
-
-        if (pillX + pillW > PAGE_WIDTH - MARGIN_X && pillX > MARGIN_X) {
-          pillX = MARGIN_X;
-          pillY -= pillHeight + 5;
+      for (const line of subtitleLines) {
+        if (!line) {
+          cursorY -= 5;
+          continue;
         }
-
-        drawRoundedRect(currentPage, {
-          x: pillX,
-          y: pillY,
-          width: pillW,
-          height: pillHeight,
-          radius: 5,
-          color: pill.bg,
-          borderColor: COLORS.border,
-          borderWidth: 0.6,
-        });
-        currentPage.drawText(pill.label, {
-          x: pillX + 7,
-          y: pillY + 5.5,
+        currentPage.drawText(line, {
+          x: MARGIN_X,
+          y: cursorY - 9,
           font: sansRegular,
-          size: metaFontSize,
-          color: pill.textColor,
+          size: 8.8,
+          color: COLORS.mutedForeground,
         });
-        if (pill.href) {
-          addLinkAnnotation(currentPage, pill.href, pillX, pillY, pillW, pillHeight);
-        }
-        pillX += pillW + 6;
+        cursorY -= 12.5;
       }
-
-      cursorY = pillY - 4;
     }
 
-    cursorY -= 12;
-    currentPage.drawLine({
-      start: { x: MARGIN_X, y: cursorY },
-      end: { x: PAGE_WIDTH - MARGIN_X, y: cursorY },
-      thickness: 0.8,
-      color: COLORS.border,
-    });
-    cursorY -= 20;
+    cursorY -= 14;
+  }
+
+  function drawTextBlock(
+    lines: string[],
+    options: {
+      x: number;
+      startY: number;
+      font: PDFFont;
+      size: number;
+      lineHeight: number;
+      color: Color;
+      blankLineHeight?: number;
+    },
+  ): number {
+    let y = options.startY;
+    for (const line of lines) {
+      if (!line) {
+        y -= options.blankLineHeight ?? 5;
+        continue;
+      }
+      currentPage.drawText(line, {
+        x: options.x,
+        y: y - options.size,
+        font: options.font,
+        size: options.size,
+        color: options.color,
+      });
+      y -= options.lineHeight;
+    }
+    return y;
   }
 
   // =========================================================================
-  // SECTION HEADER HELPER
+  // 1. HERO SECTION (Centered, with Contact section buttons inline)
   // =========================================================================
-  function drawSectionHeader(title: string, badgeText?: string | null, minFollowingSpace = 48) {
-    ensureSpace(28 + minFollowingSpace);
+  function renderHeroBand(hasFollowingBands: boolean) {
+    currentBandMuted = false;
 
-    const headerBaselineY = cursorY - 11;
-    const safeTitle = sanitizeForFont(title, sansSemiBold);
-    currentPage.drawText(safeTitle, {
-      x: MARGIN_X,
-      y: headerBaselineY,
-      font: sansSemiBold,
-      size: 11,
-      color: COLORS.foreground,
-    });
+    const displayName = vm.fullName || "Developer Portfolio";
+    const nameLines = wrapTextLines(displayName, sansSemiBold, 25, CONTENT_WIDTH);
+    const roleLines = vm.role ? wrapTextLines(vm.role, sansRegular, 11.2, 430) : [];
 
-    const titleWidth = sansSemiBold.widthOfTextAtSize(safeTitle, 11);
+    // Build contact action pills matching HTML's Contact section
+    const githubHref = safeHttpUrl(vm.github?.href);
+    const linkedinHref = safeHttpUrl(vm.linkedin?.href);
 
-    if (badgeText) {
-      const safeBadge = sanitizeForFont(badgeText, monoRegular);
-      const badgeTextW = monoRegular.widthOfTextAtSize(safeBadge, 7.8);
-      const badgeW = badgeTextW + 10;
-      const badgeH = 14;
-      const badgeX = MARGIN_X + titleWidth + 7;
-      const badgeY = headerBaselineY - 2.5;
+    type ContactPill = {
+      label: string;
+      icon: IconName;
+      primary: boolean;
+      href?: string;
+      width: number;
+    };
+
+    const contactPills: ContactPill[] = [];
+    const pillFontSize = 8.6;
+    const pillIconSize = 9.5;
+    const pillPadX = 11;
+    const pillIconGap = 5;
+    const pillH = 24;
+
+    if (vm.email) {
+      const label = truncateToWidth(vm.email, sansMedium, pillFontSize, 220);
+      const textW = sansMedium.widthOfTextAtSize(label, pillFontSize);
+      contactPills.push({
+        label,
+        icon: "mail",
+        primary: true,
+        href: `mailto:${vm.email}`,
+        width: pillPadX * 2 + pillIconSize + pillIconGap + textW,
+      });
+    }
+
+    if (vm.phone) {
+      const label = truncateToWidth(vm.phone, sansMedium, pillFontSize, 170);
+      const textW = sansMedium.widthOfTextAtSize(label, pillFontSize);
+      const telDigits = vm.phone.replace(/\D/g, "");
+      contactPills.push({
+        label,
+        icon: "phone",
+        primary: false,
+        href: telDigits ? `tel:${vm.phone.startsWith("+") ? "+" : ""}${telDigits}` : undefined,
+        width: pillPadX * 2 + pillIconSize + pillIconGap + textW,
+      });
+    }
+
+    if (githubHref) {
+      const label = "GitHub";
+      const textW = sansMedium.widthOfTextAtSize(label, pillFontSize);
+      contactPills.push({
+        label,
+        icon: "github",
+        primary: false,
+        href: githubHref,
+        width: pillPadX * 2 + pillIconSize + pillIconGap + textW,
+      });
+    }
+
+    if (linkedinHref) {
+      const label = "LinkedIn";
+      const textW = sansMedium.widthOfTextAtSize(label, pillFontSize);
+      contactPills.push({
+        label,
+        icon: "linkedin",
+        primary: false,
+        href: linkedinHref,
+        width: pillPadX * 2 + pillIconSize + pillIconGap + textW,
+      });
+    }
+
+    cursorY -= 6;
+
+    // Location badge pill (centered)
+    if (vm.location) {
+      const locFontSize = 8.2;
+      const locIconSize = 9;
+      const safeLoc = truncateToWidth(vm.location, sansMedium, locFontSize, CONTENT_WIDTH - 40);
+      const locTextW = sansMedium.widthOfTextAtSize(safeLoc, locFontSize);
+      const badgeW = 8 * 2 + locIconSize + 4.5 + locTextW;
+      const badgeH = 19;
+      const badgeX = (PAGE_WIDTH - badgeW) / 2;
+      const badgeY = cursorY - badgeH;
 
       drawRoundedRect(currentPage, {
         x: badgeX,
         y: badgeY,
         width: badgeW,
         height: badgeH,
-        radius: 4,
-        color: COLORS.muted,
+        radius: 6,
+        color: COLORS.pillBg,
+        borderColor: COLORS.border,
+        borderWidth: 0.7,
       });
-      currentPage.drawText(safeBadge, {
-        x: badgeX + 5,
-        y: badgeY + 4,
-        font: monoRegular,
-        size: 7.8,
-        color: COLORS.mutedForeground,
+      drawIcon(currentPage, "mapPin", {
+        x: badgeX + 8,
+        y: badgeY + (badgeH - locIconSize) / 2,
+        size: locIconSize,
+        color: COLORS.foreground,
+        strokeWidth: 2,
       });
-    }
-
-    cursorY -= 18;
-    currentPage.drawLine({
-      start: { x: MARGIN_X, y: cursorY },
-      end: { x: PAGE_WIDTH - MARGIN_X, y: cursorY },
-      thickness: 0.6,
-      color: COLORS.border,
-    });
-    cursorY -= 12;
-  }
-
-  // =========================================================================
-  // 2. EXPERIENCE & TECHNOLOGIES SECTION
-  // =========================================================================
-  if (vm.experiences.length > 0) {
-    drawSectionHeader("Experience", vm.totalExperienceDuration, 54);
-
-    for (let i = 0; i < vm.experiences.length; i++) {
-      const exp = vm.experiences[i];
-      const descLines = exp.description
-        ? wrapTextLines(exp.description, sansRegular, 9, CONTENT_WIDTH)
-        : [];
-      const estimatedItemHeight = 16 + (descLines.length > 0 ? descLines.length * 13 + 4 : 0) + 12;
-
-      ensureSpace(Math.min(estimatedItemHeight, 90));
-
-      const dateStr = exp.dates ? `${exp.dates}${exp.duration ? ` · ${exp.duration}` : ""}` : "";
-      const safeDateStr = dateStr ? sanitizeForFont(dateStr, monoRegular) : "";
-      const dateWidth = safeDateStr ? monoRegular.widthOfTextAtSize(safeDateStr, 8.2) : 0;
-
-      const maxLeftWidth = CONTENT_WIDTH - (dateWidth > 0 ? dateWidth + 14 : 0);
-      const roleTitle = sanitizeForFont(exp.role || "Untitled role", sansSemiBold);
-      const roleWidth = sansSemiBold.widthOfTextAtSize(roleTitle, 9.8);
-
-      const baselineY = cursorY - 9.5;
-      currentPage.drawText(truncateToWidth(roleTitle, sansSemiBold, 9.8, maxLeftWidth), {
-        x: MARGIN_X,
-        y: baselineY,
-        font: sansSemiBold,
-        size: 9.8,
+      currentPage.drawText(safeLoc, {
+        x: badgeX + 8 + locIconSize + 4.5,
+        y: badgeY + 6.2,
+        font: sansMedium,
+        size: locFontSize,
         color: COLORS.foreground,
       });
 
-      if (exp.company && roleWidth + 16 < maxLeftWidth) {
-        const companyText = sanitizeForFont(` · ${exp.company}`, sansRegular);
-        const remainingWidth = maxLeftWidth - roleWidth;
-        currentPage.drawText(truncateToWidth(companyText, sansRegular, 9.5, remainingWidth), {
-          x: MARGIN_X + roleWidth,
-          y: baselineY,
-          font: sansRegular,
-          size: 9.5,
-          color: COLORS.mutedForeground,
-        });
-      }
+      cursorY = badgeY - 12;
+    }
 
-      if (safeDateStr) {
-        currentPage.drawText(safeDateStr, {
-          x: PAGE_WIDTH - MARGIN_X - dateWidth,
-          y: baselineY + 0.5,
-          font: monoRegular,
-          size: 8.2,
-          color: COLORS.mutedForeground,
-        });
-      }
+    // Name (centered)
+    for (const line of nameLines) {
+      const lineW = sansSemiBold.widthOfTextAtSize(line, 25);
+      currentPage.drawText(line, {
+        x: (PAGE_WIDTH - lineW) / 2,
+        y: cursorY - 21,
+        font: sansSemiBold,
+        size: 25,
+        color: COLORS.primary,
+      });
+      cursorY -= 28;
+    }
 
-      cursorY -= 15;
-
-      if (descLines.length > 0) {
-        cursorY -= 2;
-        for (const line of descLines) {
-          if (!line) {
-            cursorY -= 6;
-            continue;
-          }
-          ensureSpace(15);
-          currentPage.drawText(line, {
-            x: MARGIN_X,
-            y: cursorY - 8.5,
-            font: sansRegular,
-            size: 9,
-            color: COLORS.body,
-          });
-          cursorY -= 13;
+    // Role (centered)
+    if (roleLines.length > 0) {
+      cursorY -= 2;
+      for (const line of roleLines) {
+        if (!line) {
+          cursorY -= 5;
+          continue;
         }
-      }
-
-      const hasMore = i < vm.experiences.length - 1 || vm.technologyTotals.length > 0;
-      if (hasMore) {
-        cursorY -= 6;
-        currentPage.drawLine({
-          start: { x: MARGIN_X, y: cursorY },
-          end: { x: PAGE_WIDTH - MARGIN_X, y: cursorY },
-          thickness: 0.5,
-          color: COLORS.divider,
+        const lineW = sansRegular.widthOfTextAtSize(line, 11.2);
+        currentPage.drawText(line, {
+          x: (PAGE_WIDTH - lineW) / 2,
+          y: cursorY - 10.5,
+          font: sansRegular,
+          size: 11.2,
+          color: COLORS.mutedForeground,
         });
-        cursorY -= 10;
-      } else {
-        cursorY -= 6;
+        cursorY -= 15.5;
       }
     }
 
-    if (vm.technologyTotals.length > 0) {
-      ensureSpace(44);
-      currentPage.drawText("Technologies", {
-        x: MARGIN_X,
-        y: cursorY - 8.5,
-        font: sansMedium,
-        size: 8.5,
-        color: COLORS.mutedForeground,
-      });
-      cursorY -= 14;
+    // Contact pills (centered rows, replacing "Get in touch" CTA + bottom contact section)
+    if (contactPills.length > 0) {
+      cursorY -= 12;
+      const rows = groupIntoRows(contactPills, CONTENT_WIDTH, 7);
 
-      const chipH = 17;
-      const gapX = 5;
-      const gapY = 5;
-      let chipX = MARGIN_X;
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        let pillX = (PAGE_WIDTH - row.totalWidth) / 2;
+        const pillY = cursorY - pillH;
 
-      ensureSpace(chipH + 4);
+        for (const pill of row.items) {
+          drawRoundedRect(currentPage, {
+            x: pillX,
+            y: pillY,
+            width: pill.width,
+            height: pillH,
+            radius: pillH / 2,
+            color: pill.primary ? COLORS.primary : COLORS.background,
+            borderColor: pill.primary ? undefined : COLORS.border,
+            borderWidth: pill.primary ? 0 : 0.75,
+          });
 
-      for (const tech of vm.technologyTotals) {
-        const safeLabel = sanitizeForFont(tech.label, sansMedium);
-        const safeDur = tech.duration ? sanitizeForFont(tech.duration, monoRegular) : "";
-        const labelW = sansMedium.widthOfTextAtSize(safeLabel, 8.2);
-        const durW = safeDur ? monoRegular.widthOfTextAtSize(safeDur, 7.6) : 0;
-        const chipW = labelW + (durW > 0 ? durW + 6 : 0) + 12;
+          const fgColor = pill.primary ? COLORS.primaryForeground : COLORS.foreground;
+          drawIcon(currentPage, pill.icon, {
+            x: pillX + pillPadX,
+            y: pillY + (pillH - pillIconSize) / 2,
+            size: pillIconSize,
+            color: fgColor,
+            strokeWidth: 2,
+          });
+          currentPage.drawText(pill.label, {
+            x: pillX + pillPadX + pillIconSize + pillIconGap,
+            y: pillY + 8.5,
+            font: sansMedium,
+            size: pillFontSize,
+            color: fgColor,
+          });
 
-        if (chipX + chipW > PAGE_WIDTH - MARGIN_X && chipX > MARGIN_X) {
-          chipX = MARGIN_X;
-          cursorY -= chipH + gapY;
-          ensureSpace(chipH + 4);
+          if (pill.href) {
+            addLinkAnnotation(currentPage, pill.href, pillX, pillY, pill.width, pillH);
+          }
+
+          pillX += pill.width + 7;
         }
 
-        const chipY = cursorY - chipH;
+        cursorY = pillY - (r < rows.length - 1 ? 6 : 0);
+      }
+    }
+
+    cursorY -= BAND_PAD_Y;
+    if (hasFollowingBands) {
+      drawBandDivider();
+    }
+  }
+
+  // =========================================================================
+  // 2. EXPERIENCE SECTION (Left aside stacked above Right timeline cards)
+  // =========================================================================
+  function renderExperienceBand(muted: boolean, hasNextBand: boolean) {
+    if (vm.experiences.length === 0) return;
+
+    const innerW = CONTENT_WIDTH - CARD_PAD_X * 2;
+    const measuredExps = vm.experiences.map((exp) => {
+      const dateStr = exp.dates ? `${exp.dates}${exp.duration ? ` · ${exp.duration}` : ""}` : "";
+      const dateBadge = dateStr ? measureMonoBadge(dateStr) : null;
+
+      const roleText = sanitizeForFont(exp.role || "Untitled role", sansSemiBold);
+      const companyText = exp.company ? sanitizeForFont(` · ${exp.company}`, sansRegular) : "";
+      const roleW = sansSemiBold.widthOfTextAtSize(roleText, 9.8);
+      const companyW = companyText ? sansRegular.widthOfTextAtSize(companyText, 9.4) : 0;
+
+      const maxLeftWidth = dateBadge ? innerW - dateBadge.width - 10 : innerW;
+      const inlineCompany = companyText !== "" && roleW + companyW <= maxLeftWidth;
+      const wrappedRoleLines =
+        roleW > maxLeftWidth
+          ? wrapTextLines(roleText, sansSemiBold, 9.8, maxLeftWidth)
+          : [roleText];
+      const wrappedCompanyLines =
+        companyText && !inlineCompany ? wrapTextLines(exp.company, sansRegular, 9.2, innerW) : [];
+
+      const topRowH = Math.max(dateBadge ? dateBadge.height : 0, wrappedRoleLines.length * 13.5);
+      const extraCompanyH =
+        wrappedCompanyLines.length > 0 ? 2 + measureLinesHeight(wrappedCompanyLines, 12.5) : 0;
+
+      const descLines = exp.description
+        ? wrapTextLines(exp.description, sansRegular, 8.6, innerW)
+        : [];
+      const descH = descLines.length > 0 ? 7 + measureLinesHeight(descLines, 12.8) : 0;
+      const cardH = CARD_PAD_Y * 2 + topRowH + extraCompanyH + descH;
+
+      return {
+        dateBadge,
+        roleText,
+        companyText,
+        roleW,
+        inlineCompany,
+        wrappedRoleLines,
+        wrappedCompanyLines,
+        topRowH,
+        extraCompanyH,
+        descLines,
+        cardH,
+      };
+    });
+
+    const firstCardKeep = Math.min(
+      measuredExps[0].cardH,
+      MAX_PAGE_CONTENT_HEIGHT - BAND_PAD_Y - 54,
+    );
+    ensureSpace(BAND_PAD_Y + 54 + firstCardKeep);
+    currentBandMuted = muted;
+    advanceCursor(BAND_PAD_Y);
+
+    drawSectionHeader({
+      title: "Experience",
+      subtitle: "Roles, responsibilities, and production systems shipped over time.",
+      icon: "briefcase",
+      badgeText: vm.totalExperienceDuration,
+    });
+
+    for (let i = 0; i < measuredExps.length; i++) {
+      const {
+        dateBadge,
+        roleText,
+        companyText,
+        roleW,
+        inlineCompany,
+        wrappedRoleLines,
+        wrappedCompanyLines,
+        topRowH,
+        extraCompanyH,
+        descLines,
+        cardH,
+      } = measuredExps[i];
+
+      const drawExperienceCard = (linesSlice: string[], includeHeader: boolean) => {
+        const sliceDescH =
+          linesSlice.length > 0
+            ? (includeHeader ? 7 : 0) + measureLinesHeight(linesSlice, 12.8)
+            : 0;
+        const sliceH = CARD_PAD_Y * 2 + (includeHeader ? topRowH + extraCompanyH : 0) + sliceDescH;
+
+        fillBandSlice(cursorY, cursorY - sliceH);
+        const cardBottomY = cursorY - sliceH;
+
+        drawRoundedRect(currentPage, {
+          x: MARGIN_X,
+          y: cardBottomY,
+          width: CONTENT_WIDTH,
+          height: sliceH,
+          radius: CARD_RADIUS,
+          color: COLORS.background,
+          borderColor: COLORS.ringCard,
+          borderWidth: 0.75,
+        });
+
+        let innerY = cursorY - CARD_PAD_Y;
+
+        if (includeHeader) {
+          const firstLineBaselineY = innerY - 10;
+
+          if (wrappedRoleLines.length === 1) {
+            currentPage.drawText(roleText, {
+              x: MARGIN_X + CARD_PAD_X,
+              y: firstLineBaselineY,
+              font: sansSemiBold,
+              size: 9.8,
+              color: COLORS.foreground,
+            });
+            if (inlineCompany) {
+              currentPage.drawText(companyText, {
+                x: MARGIN_X + CARD_PAD_X + roleW,
+                y: firstLineBaselineY,
+                font: sansRegular,
+                size: 9.4,
+                color: COLORS.mutedForeground,
+              });
+            }
+          } else {
+            drawTextBlock(wrappedRoleLines, {
+              x: MARGIN_X + CARD_PAD_X,
+              startY: innerY,
+              font: sansSemiBold,
+              size: 9.8,
+              lineHeight: 13.5,
+              color: COLORS.foreground,
+            });
+          }
+
+          if (dateBadge) {
+            drawMonoBadge(
+              MARGIN_X + CONTENT_WIDTH - CARD_PAD_X - dateBadge.width,
+              innerY - dateBadge.height + 1,
+              dateBadge,
+            );
+          }
+
+          innerY -= topRowH;
+
+          if (wrappedCompanyLines.length > 0) {
+            innerY -= 2;
+            innerY = drawTextBlock(wrappedCompanyLines, {
+              x: MARGIN_X + CARD_PAD_X,
+              startY: innerY,
+              font: sansRegular,
+              size: 9.2,
+              lineHeight: 12.5,
+              color: COLORS.mutedForeground,
+            });
+          }
+
+          if (linesSlice.length > 0) {
+            innerY -= 7;
+          }
+        }
+
+        if (linesSlice.length > 0) {
+          drawTextBlock(linesSlice, {
+            x: MARGIN_X + CARD_PAD_X,
+            startY: innerY,
+            font: sansRegular,
+            size: 8.6,
+            lineHeight: 12.8,
+            color: COLORS.mutedForeground,
+          });
+        }
+
+        cursorY = cardBottomY;
+      };
+
+      if (cardH <= MAX_PAGE_CONTENT_HEIGHT) {
+        ensureSpace(cardH);
+        drawExperienceCard(descLines, true);
+      } else {
+        // Extremely long single experience card: split description cleanly across pages
+        let remaining = [...descLines];
+        let isFirstSlice = true;
+        while (isFirstSlice || remaining.length > 0) {
+          const overhead = CARD_PAD_Y * 2 + (isFirstSlice ? topRowH + extraCompanyH + 7 : 0);
+          if (cursorY - (overhead + 26) < MARGIN_BOTTOM) {
+            addNewPage();
+          }
+          const avail = cursorY - MARGIN_BOTTOM - overhead;
+          const chunk: string[] = [];
+          let used = 0;
+          while (remaining.length > 0) {
+            const lh = remaining[0] ? 12.8 : 5;
+            if (chunk.length > 0 && used + lh > avail) break;
+            chunk.push(remaining.shift()!);
+            used += lh;
+          }
+          drawExperienceCard(chunk, isFirstSlice);
+          isFirstSlice = false;
+          if (remaining.length > 0) {
+            addNewPage();
+          }
+        }
+      }
+
+      if (i < vm.experiences.length - 1) {
+        advanceCursor(10);
+      }
+    }
+
+    advanceCursor(BAND_PAD_Y);
+    if (hasNextBand) {
+      drawBandDivider();
+    }
+    currentBandMuted = false;
+  }
+
+  // =========================================================================
+  // 3. TECHNOLOGIES SECTION
+  // =========================================================================
+  function renderTechnologiesBand(muted: boolean, hasNextBand: boolean) {
+    if (vm.technologyTotals.length === 0) return;
+
+    ensureSpace(BAND_PAD_Y + 52 + 24);
+    currentBandMuted = muted;
+    advanceCursor(BAND_PAD_Y);
+
+    drawSectionHeader({
+      title: "Technologies",
+      subtitle: "Technologies aggregated across experience timelines.",
+      icon: "code",
+    });
+
+    const pillH = 20;
+    const gapX = 6;
+    const gapY = 6;
+
+    const pills = vm.technologyTotals.map((tech) => {
+      const label = sanitizeForFont(tech.label, sansMedium);
+      const duration = tech.duration ? sanitizeForFont(tech.duration, monoRegular) : "";
+      const labelW = sansMedium.widthOfTextAtSize(label, 8.5);
+      const durW = duration ? monoRegular.widthOfTextAtSize(duration, 7.5) : 0;
+      const width = 8 * 2 + labelW + (durW > 0 ? 5.5 + durW : 0);
+      return { label, duration, labelW, width };
+    });
+
+    const rows = groupIntoRows(pills, CONTENT_WIDTH, gapX);
+
+    for (let r = 0; r < rows.length; r++) {
+      ensureSpace(pillH);
+      fillBandSlice(cursorY, cursorY - pillH);
+
+      let chipX = MARGIN_X;
+      const chipY = cursorY - pillH;
+
+      for (const pill of rows[r].items) {
         drawRoundedRect(currentPage, {
           x: chipX,
           y: chipY,
-          width: chipW,
-          height: chipH,
-          radius: 4.5,
-          color: COLORS.chipBg,
-          borderColor: COLORS.border,
-          borderWidth: 0.6,
+          width: pill.width,
+          height: pillH,
+          radius: 5.5,
+          color: COLORS.pillBg,
+          borderColor: COLORS.borderGrid,
+          borderWidth: 0.7,
         });
-
-        currentPage.drawText(safeLabel, {
-          x: chipX + 6,
-          y: chipY + 5,
+        currentPage.drawText(pill.label, {
+          x: chipX + 8,
+          y: chipY + 6.5,
           font: sansMedium,
-          size: 8.2,
+          size: 8.5,
           color: COLORS.foreground,
         });
-
-        if (safeDur) {
-          currentPage.drawText(safeDur, {
-            x: chipX + 6 + labelW + 5,
-            y: chipY + 5,
+        if (pill.duration) {
+          currentPage.drawText(pill.duration, {
+            x: chipX + 8 + pill.labelW + 5.5,
+            y: chipY + 6.5,
             font: monoRegular,
-            size: 7.6,
+            size: 7.5,
             color: COLORS.mutedForeground,
           });
         }
-
-        chipX += chipW + gapX;
+        chipX += pill.width + gapX;
       }
 
-      cursorY -= chipH + 6;
+      cursorY = chipY;
+      if (r < rows.length - 1) {
+        advanceCursor(gapY);
+      }
     }
 
-    cursorY -= 14;
+    advanceCursor(BAND_PAD_Y);
+    if (hasNextBand) {
+      drawBandDivider();
+    }
+    currentBandMuted = false;
   }
 
   // =========================================================================
-  // 3. PROJECTS SECTION
+  // 4. PROJECTS SECTION (1-column full-width cards stacked vertically)
   // =========================================================================
-  if (vm.projects.length > 0) {
-    drawSectionHeader("Projects", null, 48);
+  function renderProjectsBand(muted: boolean, hasNextBand: boolean) {
+    if (vm.projects.length === 0) return;
 
-    for (let i = 0; i < vm.projects.length; i++) {
-      const proj = vm.projects[i];
+    const innerW = CONTENT_WIDTH - CARD_PAD_X * 2;
+    const footerH = 22;
+
+    const measuredProjects = vm.projects.map((proj) => {
+      const titleLines = wrapTextLines(proj.name || "Untitled project", sansMedium, 10, innerW);
       const descLines = proj.description
-        ? wrapTextLines(proj.description, sansRegular, 9, CONTENT_WIDTH)
+        ? wrapTextLines(proj.description, sansRegular, 8.6, innerW)
         : [];
-      const estimatedHeight = 16 + (descLines.length > 0 ? descLines.length * 13 + 4 : 0) + 10;
+      const hasFooter = Boolean(proj.linkDisplay);
+      const linkHref = safeHttpUrl(proj.linkHref);
 
-      ensureSpace(Math.min(estimatedHeight, 80));
+      const titleH = measureLinesHeight(titleLines, 13.5);
+      const descH = descLines.length > 0 ? 5 + measureLinesHeight(descLines, 12.8) : 0;
+      const bodyH = CARD_PAD_Y * 2 + titleH + descH;
+      const totalCardH = bodyH + (hasFooter ? footerH : 0);
 
-      const safeLink = proj.linkDisplay
-        ? truncateToWidth(proj.linkDisplay, monoRegular, 8.2, 230)
-        : "";
-      const linkW = safeLink ? monoRegular.widthOfTextAtSize(safeLink, 8.2) : 0;
-      const maxTitleW = CONTENT_WIDTH - (linkW > 0 ? linkW + 14 : 0);
+      return { proj, titleLines, descLines, hasFooter, linkHref, totalCardH };
+    });
 
-      const safeTitle = truncateToWidth(
-        proj.name || "Untitled project",
-        sansSemiBold,
-        9.8,
-        maxTitleW,
-      );
-      const baselineY = cursorY - 9.5;
+    const firstCardKeep = Math.min(
+      measuredProjects[0].totalCardH,
+      MAX_PAGE_CONTENT_HEIGHT - BAND_PAD_Y - 52,
+    );
+    ensureSpace(BAND_PAD_Y + 52 + firstCardKeep);
+    currentBandMuted = muted;
+    advanceCursor(BAND_PAD_Y);
 
-      currentPage.drawText(safeTitle, {
+    drawSectionHeader({
+      title: "Projects",
+      subtitle: "Selected builds, open-source repositories, and shipped work.",
+    });
+
+    for (let i = 0; i < measuredProjects.length; i++) {
+      const { proj, titleLines, descLines, hasFooter, linkHref, totalCardH } = measuredProjects[i];
+
+      ensureSpace(Math.min(totalCardH, MAX_PAGE_CONTENT_HEIGHT));
+      fillBandSlice(cursorY, cursorY - totalCardH);
+
+      const cardBottomY = cursorY - totalCardH;
+
+      // White card background
+      drawRoundedRect(currentPage, {
         x: MARGIN_X,
-        y: baselineY,
-        font: sansSemiBold,
-        size: 9.8,
-        color: COLORS.foreground,
+        y: cardBottomY,
+        width: CONTENT_WIDTH,
+        height: totalCardH,
+        radius: CARD_RADIUS,
+        color: COLORS.background,
       });
 
-      if (safeLink) {
-        const linkX = PAGE_WIDTH - MARGIN_X - linkW;
+      // Muted footer strip (rounded bottom corners)
+      if (hasFooter) {
+        drawBottomRoundedRect(currentPage, {
+          x: MARGIN_X,
+          y: cardBottomY,
+          width: CONTENT_WIDTH,
+          height: footerH,
+          radius: CARD_RADIUS,
+          color: COLORS.cardFooterBg,
+        });
+        currentPage.drawLine({
+          start: { x: MARGIN_X, y: cardBottomY + footerH },
+          end: { x: MARGIN_X + CONTENT_WIDTH, y: cardBottomY + footerH },
+          thickness: 0.6,
+          color: COLORS.borderGrid,
+        });
+        const safeLink = truncateToWidth(proj.linkDisplay, monoRegular, 7.6, innerW);
         currentPage.drawText(safeLink, {
-          x: linkX,
-          y: baselineY + 0.5,
+          x: MARGIN_X + CARD_PAD_X,
+          y: cardBottomY + 8,
           font: monoRegular,
-          size: 8.2,
+          size: 7.6,
           color: COLORS.mutedForeground,
         });
-        if (proj.linkHref) {
-          addLinkAnnotation(currentPage, proj.linkHref, linkX, baselineY - 2, linkW, 12);
-        }
       }
 
-      cursorY -= 15;
+      // Outer rounded border drawn cleanly on top
+      drawRoundedRect(currentPage, {
+        x: MARGIN_X,
+        y: cardBottomY,
+        width: CONTENT_WIDTH,
+        height: totalCardH,
+        radius: CARD_RADIUS,
+        borderColor: COLORS.ringCard,
+        borderWidth: 0.75,
+      });
+
+      let innerY = cursorY - CARD_PAD_Y;
+      innerY = drawTextBlock(titleLines, {
+        x: MARGIN_X + CARD_PAD_X,
+        startY: innerY,
+        font: sansMedium,
+        size: 10,
+        lineHeight: 13.5,
+        color: COLORS.foreground,
+      });
 
       if (descLines.length > 0) {
-        cursorY -= 2;
-        for (const line of descLines) {
-          if (!line) {
-            cursorY -= 6;
-            continue;
-          }
-          ensureSpace(15);
-          currentPage.drawText(line, {
-            x: MARGIN_X,
-            y: cursorY - 8.5,
-            font: sansRegular,
-            size: 9,
-            color: COLORS.body,
-          });
-          cursorY -= 13;
-        }
-      }
-
-      if (i < vm.projects.length - 1) {
-        cursorY -= 6;
-        currentPage.drawLine({
-          start: { x: MARGIN_X, y: cursorY },
-          end: { x: PAGE_WIDTH - MARGIN_X, y: cursorY },
-          thickness: 0.5,
-          color: COLORS.divider,
-        });
-        cursorY -= 10;
-      } else {
-        cursorY -= 6;
-      }
-    }
-
-    cursorY -= 14;
-  }
-
-  // =========================================================================
-  // 4. EDUCATION SECTION
-  // =========================================================================
-  if (vm.education.length > 0) {
-    drawSectionHeader("Education", vm.totalEducationDuration, 48);
-
-    for (let i = 0; i < vm.education.length; i++) {
-      const edu = vm.education[i];
-      ensureSpace(42);
-
-      const dateStr = edu.dates ? `${edu.dates}${edu.duration ? ` · ${edu.duration}` : ""}` : "";
-      const safeDateStr = dateStr ? sanitizeForFont(dateStr, monoRegular) : "";
-      const dateWidth = safeDateStr ? monoRegular.widthOfTextAtSize(safeDateStr, 8.2) : 0;
-
-      const maxDegreeW = CONTENT_WIDTH - (dateWidth > 0 ? dateWidth + 14 : 0);
-      const safeDegree = truncateToWidth(
-        edu.degree || "Untitled degree",
-        sansSemiBold,
-        9.8,
-        maxDegreeW,
-      );
-
-      const baselineY = cursorY - 9.5;
-      currentPage.drawText(safeDegree, {
-        x: MARGIN_X,
-        y: baselineY,
-        font: sansSemiBold,
-        size: 9.8,
-        color: COLORS.foreground,
-      });
-
-      if (safeDateStr) {
-        currentPage.drawText(safeDateStr, {
-          x: PAGE_WIDTH - MARGIN_X - dateWidth,
-          y: baselineY + 0.5,
-          font: monoRegular,
-          size: 8.2,
-          color: COLORS.mutedForeground,
-        });
-      }
-
-      cursorY -= 15;
-
-      if (edu.university || edu.levelLabel) {
-        let subX = MARGIN_X;
-        const subBaselineY = cursorY - 9;
-
-        if (edu.university) {
-          const safeUni = truncateToWidth(edu.university, sansRegular, 8.8, CONTENT_WIDTH - 90);
-          currentPage.drawText(safeUni, {
-            x: subX,
-            y: subBaselineY,
-            font: sansRegular,
-            size: 8.8,
-            color: COLORS.mutedForeground,
-          });
-          subX += sansRegular.widthOfTextAtSize(safeUni, 8.8) + 7;
-        }
-
-        if (edu.levelLabel) {
-          const safeLevel = sanitizeForFont(edu.levelLabel, sansMedium);
-          const levelW = sansMedium.widthOfTextAtSize(safeLevel, 7.6);
-          const pillW = levelW + 10;
-          const pillH = 13.5;
-          const pillY = subBaselineY - 2.8;
-
-          drawRoundedRect(currentPage, {
-            x: subX,
-            y: pillY,
-            width: pillW,
-            height: pillH,
-            radius: 3.5,
-            color: COLORS.muted,
-          });
-          currentPage.drawText(safeLevel, {
-            x: subX + 5,
-            y: pillY + 3.8,
-            font: sansMedium,
-            size: 7.6,
-            color: COLORS.secondaryForeground,
-          });
-        }
-
-        cursorY -= 15;
-      }
-
-      if (i < vm.education.length - 1) {
-        cursorY -= 5;
-        currentPage.drawLine({
-          start: { x: MARGIN_X, y: cursorY },
-          end: { x: PAGE_WIDTH - MARGIN_X, y: cursorY },
-          thickness: 0.5,
-          color: COLORS.divider,
-        });
-        cursorY -= 10;
-      } else {
-        cursorY -= 5;
-      }
-    }
-
-    cursorY -= 14;
-  }
-
-  // =========================================================================
-  // 5. LANGUAGES SECTION
-  // =========================================================================
-  if (vm.languages.length > 0) {
-    drawSectionHeader("Languages", null, 38);
-
-    const chipH = 20;
-    const gapX = 6;
-    const gapY = 6;
-    let chipX = MARGIN_X;
-
-    ensureSpace(chipH + 4);
-
-    for (const lang of vm.languages) {
-      const safeLang = sanitizeForFont(lang.language, sansMedium);
-      const safeFluency = lang.fluencyLabel ? sanitizeForFont(lang.fluencyLabel, sansRegular) : "";
-
-      const langW = sansMedium.widthOfTextAtSize(safeLang, 8.8);
-      const fluencyW = safeFluency ? sansRegular.widthOfTextAtSize(safeFluency, 8) : 0;
-      const chipW = langW + (fluencyW > 0 ? fluencyW + 7 : 0) + 16;
-
-      if (chipX + chipW > PAGE_WIDTH - MARGIN_X && chipX > MARGIN_X) {
-        chipX = MARGIN_X;
-        cursorY -= chipH + gapY;
-        ensureSpace(chipH + 4);
-      }
-
-      const chipY = cursorY - chipH;
-      drawRoundedRect(currentPage, {
-        x: chipX,
-        y: chipY,
-        width: chipW,
-        height: chipH,
-        radius: 5,
-        color: COLORS.chipBg,
-        borderColor: COLORS.border,
-        borderWidth: 0.6,
-      });
-
-      currentPage.drawText(safeLang, {
-        x: chipX + 8,
-        y: chipY + 6,
-        font: sansMedium,
-        size: 8.8,
-        color: COLORS.foreground,
-      });
-
-      if (safeFluency) {
-        currentPage.drawText(safeFluency, {
-          x: chipX + 8 + langW + 7,
-          y: chipY + 6,
+        innerY -= 5;
+        drawTextBlock(descLines, {
+          x: MARGIN_X + CARD_PAD_X,
+          startY: innerY,
           font: sansRegular,
-          size: 8,
+          size: 8.6,
+          lineHeight: 12.8,
           color: COLORS.mutedForeground,
         });
       }
 
-      chipX += chipW + gapX;
+      if (linkHref) {
+        addLinkAnnotation(currentPage, linkHref, MARGIN_X, cardBottomY, CONTENT_WIDTH, totalCardH);
+      }
+
+      cursorY = cardBottomY;
+      if (i < vm.projects.length - 1) {
+        advanceCursor(10);
+      }
     }
 
-    cursorY -= chipH + 20;
+    advanceCursor(BAND_PAD_Y);
+    if (hasNextBand) {
+      drawBandDivider();
+    }
+    currentBandMuted = false;
   }
 
   // =========================================================================
-  // 6. SETUP SECTION (2-column PDF grid of setup items)
+  // 5. SETUP SECTION (1-column full-width cards stacked vertically)
   // =========================================================================
-  if (vm.setups.length > 0) {
-    drawSectionHeader("Setup", null, 48);
+  function renderSetupBand(muted: boolean, hasNextBand: boolean) {
+    if (vm.setups.length === 0) return;
 
-    const colGap = 10;
-    const colWidth = (CONTENT_WIDTH - colGap) / 2;
-
-    for (let i = 0; i < vm.setups.length; i += 2) {
-      const leftItem = vm.setups[i];
-      const rightItem = vm.setups[i + 1];
-      const isSingleFullRow = !rightItem && vm.setups.length === 1;
-      const boxWidth = isSingleFullRow ? CONTENT_WIDTH : colWidth;
-      const innerTextWidth = boxWidth - 18;
-
-      const leftLines = leftItem.description
-        ? wrapTextLines(leftItem.description, sansRegular, 8.5, innerTextWidth)
+    const innerW = CONTENT_WIDTH - CARD_PAD_X * 2;
+    const measuredSetups = vm.setups.map((item) => {
+      const titleLines = wrapTextLines(item.name || "Untitled item", sansMedium, 9.8, innerW);
+      const descLines = item.description
+        ? wrapTextLines(item.description, sansRegular, 8.6, innerW)
         : [];
-      const rightLines =
-        rightItem && rightItem.description
-          ? wrapTextLines(rightItem.description, sansRegular, 8.5, innerTextWidth)
-          : [];
+      const titleH = measureLinesHeight(titleLines, 13.5);
+      const descH = descLines.length > 0 ? 4.5 + measureLinesHeight(descLines, 12.8) : 0;
+      const cardH = CARD_PAD_Y * 2 + titleH + descH;
+      return { titleLines, descLines, cardH };
+    });
 
-      const maxLines = Math.max(leftLines.length, rightLines.length);
-      const cardHeight = 24 + (maxLines > 0 ? maxLines * 12 + 4 : 0);
+    const firstCardKeep = Math.min(
+      measuredSetups[0].cardH,
+      MAX_PAGE_CONTENT_HEIGHT - BAND_PAD_Y - 54,
+    );
+    ensureSpace(BAND_PAD_Y + 54 + firstCardKeep);
+    currentBandMuted = muted;
+    advanceCursor(BAND_PAD_Y);
 
-      ensureSpace(cardHeight + 6);
-      const cardBottomY = cursorY - cardHeight;
+    drawSectionHeader({
+      title: "Setup",
+      subtitle: "Hardware, software, and daily tools that power my workflow.",
+      icon: "laptop",
+    });
 
-      const itemsInRow = rightItem ? [leftItem, rightItem] : [leftItem];
-      const linesInRow = [leftLines, rightLines];
+    for (let i = 0; i < measuredSetups.length; i++) {
+      const { titleLines, descLines, cardH } = measuredSetups[i];
 
-      itemsInRow.forEach((item, colIdx) => {
-        const cardX = MARGIN_X + colIdx * (colWidth + colGap);
-        drawRoundedRect(currentPage, {
-          x: cardX,
-          y: cardBottomY,
-          width: boxWidth,
-          height: cardHeight,
-          radius: 5.5,
-          color: COLORS.chipBg,
-          borderColor: COLORS.border,
-          borderWidth: 0.6,
+      ensureSpace(Math.min(cardH, MAX_PAGE_CONTENT_HEIGHT));
+      fillBandSlice(cursorY, cursorY - cardH);
+
+      const cardBottomY = cursorY - cardH;
+      drawRoundedRect(currentPage, {
+        x: MARGIN_X,
+        y: cardBottomY,
+        width: CONTENT_WIDTH,
+        height: cardH,
+        radius: CARD_RADIUS,
+        color: COLORS.background,
+        borderColor: COLORS.ringCard,
+        borderWidth: 0.75,
+      });
+
+      let innerY = cursorY - CARD_PAD_Y;
+      innerY = drawTextBlock(titleLines, {
+        x: MARGIN_X + CARD_PAD_X,
+        startY: innerY,
+        font: sansMedium,
+        size: 9.8,
+        lineHeight: 13.5,
+        color: COLORS.foreground,
+      });
+
+      if (descLines.length > 0) {
+        innerY -= 4.5;
+        drawTextBlock(descLines, {
+          x: MARGIN_X + CARD_PAD_X,
+          startY: innerY,
+          font: sansRegular,
+          size: 8.6,
+          lineHeight: 12.8,
+          color: COLORS.mutedForeground,
         });
+      }
 
-        const safeName = truncateToWidth(
-          item.name || "Untitled item",
-          sansMedium,
-          9.2,
-          innerTextWidth,
-        );
-        currentPage.drawText(safeName, {
-          x: cardX + 9,
-          y: cursorY - 15,
-          font: sansMedium,
-          size: 9.2,
+      cursorY = cardBottomY;
+      if (i < vm.setups.length - 1) {
+        advanceCursor(10);
+      }
+    }
+
+    advanceCursor(BAND_PAD_Y);
+    if (hasNextBand) {
+      drawBandDivider();
+    }
+    currentBandMuted = false;
+  }
+
+  // =========================================================================
+  // 6. BACKGROUND SECTION (Left Education card above, Right Languages card below)
+  // =========================================================================
+  function renderBackgroundBand(muted: boolean, hasNextBand: boolean) {
+    const hasEdu = vm.education.length > 0;
+    const hasLang = vm.languages.length > 0;
+    if (!hasEdu && !hasLang) return;
+
+    const cardHeaderH = 38;
+    const innerW = CONTENT_WIDTH - CARD_PAD_X * 2;
+
+    type MeasuredEduItem = {
+      degreeLines: string[];
+      dateBadge: { label: string; width: number; height: number } | null;
+      university: string;
+      levelLabel: string;
+      topRowH: number;
+      metaH: number;
+      itemH: number;
+    };
+
+    const measuredEdu: MeasuredEduItem[] = hasEdu
+      ? vm.education.map((edu) => {
+          const dateStr = edu.dates
+            ? `${edu.dates}${edu.duration ? ` · ${edu.duration}` : ""}`
+            : "";
+          const dateBadge = dateStr ? measureMonoBadge(dateStr) : null;
+          const maxDegW = dateBadge ? innerW - dateBadge.width - 10 : innerW;
+          const degreeLines = wrapTextLines(
+            edu.degree || "Untitled degree",
+            sansMedium,
+            9.4,
+            maxDegW,
+          );
+          const topRowH = Math.max(dateBadge ? dateBadge.height : 0, degreeLines.length * 13);
+          const hasMeta = Boolean(edu.university || edu.levelLabel);
+          const metaH = hasMeta ? 4 + 14.5 : 0;
+          return {
+            degreeLines,
+            dateBadge,
+            university: edu.university,
+            levelLabel: edu.levelLabel,
+            topRowH,
+            metaH,
+            itemH: topRowH + metaH,
+          };
+        })
+      : [];
+
+    const eduListH =
+      measuredEdu.reduce((sum, item) => sum + item.itemH, 0) +
+      Math.max(0, measuredEdu.length - 1) * 18;
+    const eduCardH = hasEdu ? cardHeaderH + CARD_PAD_Y * 2 + eduListH : 0;
+
+    const langPillH = 21;
+    const langGapX = 6;
+    const langGapY = 6;
+    const langPills = hasLang
+      ? vm.languages.map((lang) => {
+          const name = sanitizeForFont(lang.language, sansMedium);
+          const level = lang.fluencyLabel ? sanitizeForFont(lang.fluencyLabel, sansRegular) : "";
+          const nameW = sansMedium.widthOfTextAtSize(name, 8.6);
+          const levelW = level ? sansRegular.widthOfTextAtSize(level, 7.6) : 0;
+          const width = 8.5 * 2 + nameW + (levelW > 0 ? 6 + levelW : 0);
+          return { name, level, nameW, width };
+        })
+      : [];
+    const langRows = groupIntoRows(langPills, innerW, langGapX);
+    const langBodyH = langRows.length * langPillH + Math.max(0, langRows.length - 1) * langGapY;
+    const langCardH = hasLang ? cardHeaderH + CARD_PAD_Y * 2 + langBodyH : 0;
+
+    const firstCardH = hasEdu ? eduCardH : langCardH;
+    ensureSpace(BAND_PAD_Y + Math.min(firstCardH, MAX_PAGE_CONTENT_HEIGHT - BAND_PAD_Y));
+    currentBandMuted = muted;
+    advanceCursor(BAND_PAD_Y);
+
+    // --- Education Card (was left side in HTML -> now above) ---
+    if (hasEdu) {
+      const drawEduHeader = (cardTopY: number) => {
+        const headerBottomY = cardTopY - cardHeaderH;
+        drawIconBox(MARGIN_X + CARD_PAD_X, headerBottomY + (cardHeaderH - 20) / 2, "graduation");
+        currentPage.drawText("Education", {
+          x: MARGIN_X + CARD_PAD_X + 20 + 7,
+          y: headerBottomY + 14.5,
+          font: sansSemiBold,
+          size: 11,
           color: COLORS.foreground,
         });
 
-        let lineY = cursorY - 29;
-        for (const line of linesInRow[colIdx]) {
-          if (!line) {
-            lineY -= 5;
-            continue;
-          }
-          currentPage.drawText(line, {
-            x: cardX + 9,
-            y: lineY,
-            font: sansRegular,
-            size: 8.5,
-            color: COLORS.body,
-          });
-          lineY -= 12;
+        if (vm.totalEducationDuration) {
+          const totalBadge = measureMonoBadge(vm.totalEducationDuration);
+          drawMonoBadge(
+            MARGIN_X + CONTENT_WIDTH - CARD_PAD_X - totalBadge.width,
+            headerBottomY + (cardHeaderH - totalBadge.height) / 2,
+            totalBadge,
+          );
         }
+
+        currentPage.drawLine({
+          start: { x: MARGIN_X, y: headerBottomY },
+          end: { x: MARGIN_X + CONTENT_WIDTH, y: headerBottomY },
+          thickness: 0.6,
+          color: COLORS.borderGrid,
+        });
+      };
+
+      const drawEduItemsSlice = (slice: MeasuredEduItem[], includeHeader: boolean) => {
+        const sliceListH =
+          slice.reduce((sum, item) => sum + item.itemH, 0) + Math.max(0, slice.length - 1) * 18;
+        const sliceH = (includeHeader ? cardHeaderH : 0) + CARD_PAD_Y * 2 + sliceListH;
+
+        fillBandSlice(cursorY, cursorY - sliceH);
+        const cardBottomY = cursorY - sliceH;
+
+        drawRoundedRect(currentPage, {
+          x: MARGIN_X,
+          y: cardBottomY,
+          width: CONTENT_WIDTH,
+          height: sliceH,
+          radius: CARD_RADIUS,
+          color: COLORS.background,
+          borderColor: COLORS.ringCard,
+          borderWidth: 0.75,
+        });
+
+        let innerY = cursorY;
+        if (includeHeader) {
+          drawEduHeader(cursorY);
+          innerY -= cardHeaderH;
+        }
+        innerY -= CARD_PAD_Y;
+
+        slice.forEach((item, idx) => {
+          drawTextBlock(item.degreeLines, {
+            x: MARGIN_X + CARD_PAD_X,
+            startY: innerY,
+            font: sansMedium,
+            size: 9.4,
+            lineHeight: 13,
+            color: COLORS.foreground,
+          });
+
+          if (item.dateBadge) {
+            drawMonoBadge(
+              MARGIN_X + CONTENT_WIDTH - CARD_PAD_X - item.dateBadge.width,
+              innerY - item.dateBadge.height + 1,
+              item.dateBadge,
+            );
+          }
+
+          innerY -= item.topRowH;
+
+          if (item.metaH > 0) {
+            innerY -= 4;
+            let metaX = MARGIN_X + CARD_PAD_X;
+            const metaRowBottomY = innerY - 14.5;
+
+            if (item.university) {
+              const levelReserve = item.levelLabel ? 85 : 0;
+              const safeUni = truncateToWidth(
+                item.university,
+                sansRegular,
+                8.3,
+                innerW - levelReserve,
+              );
+              currentPage.drawText(safeUni, {
+                x: metaX,
+                y: metaRowBottomY + 4,
+                font: sansRegular,
+                size: 8.3,
+                color: COLORS.mutedForeground,
+              });
+              metaX += sansRegular.widthOfTextAtSize(safeUni, 8.3) + 6;
+            }
+
+            if (item.levelLabel) {
+              const safeLevel = sanitizeForFont(item.levelLabel, sansMedium);
+              const levelW = sansMedium.widthOfTextAtSize(safeLevel, 7.4);
+              const pillW = levelW + 12;
+              const pillH = 14.5;
+              drawRoundedRect(currentPage, {
+                x: metaX,
+                y: metaRowBottomY,
+                width: pillW,
+                height: pillH,
+                radius: pillH / 2,
+                color: COLORS.secondary,
+              });
+              currentPage.drawText(safeLevel, {
+                x: metaX + 6,
+                y: metaRowBottomY + 4.3,
+                font: sansMedium,
+                size: 7.4,
+                color: COLORS.secondaryForeground,
+              });
+            }
+
+            innerY = metaRowBottomY;
+          }
+
+          if (idx < slice.length - 1) {
+            innerY -= 9;
+            currentPage.drawLine({
+              start: { x: MARGIN_X + CARD_PAD_X, y: innerY },
+              end: { x: MARGIN_X + CONTENT_WIDTH - CARD_PAD_X, y: innerY },
+              thickness: 0.6,
+              color: COLORS.borderGrid,
+            });
+            innerY -= 9;
+          }
+        });
+
+        cursorY = cardBottomY;
+      };
+
+      if (eduCardH <= MAX_PAGE_CONTENT_HEIGHT) {
+        ensureSpace(eduCardH);
+        drawEduItemsSlice(measuredEdu, true);
+      } else {
+        let remaining = [...measuredEdu];
+        let isFirst = true;
+        while (remaining.length > 0) {
+          const overhead = (isFirst ? cardHeaderH : 0) + CARD_PAD_Y * 2;
+          if (cursorY - (overhead + remaining[0].itemH) < MARGIN_BOTTOM) {
+            addNewPage();
+          }
+          const avail = cursorY - MARGIN_BOTTOM - overhead;
+          const slice: MeasuredEduItem[] = [];
+          let used = 0;
+          while (remaining.length > 0) {
+            const nextCost = remaining[0].itemH + (slice.length > 0 ? 18 : 0);
+            if (slice.length > 0 && used + nextCost > avail) break;
+            slice.push(remaining.shift()!);
+            used += nextCost;
+          }
+          drawEduItemsSlice(slice, isFirst);
+          isFirst = false;
+          if (remaining.length > 0) {
+            addNewPage();
+          }
+        }
+      }
+
+      if (hasLang) {
+        advanceCursor(12);
+      }
+    }
+
+    // --- Languages Card (was right side in HTML -> now below) ---
+    if (hasLang) {
+      ensureSpace(Math.min(langCardH, MAX_PAGE_CONTENT_HEIGHT));
+      fillBandSlice(cursorY, cursorY - langCardH);
+
+      const cardBottomY = cursorY - langCardH;
+      drawRoundedRect(currentPage, {
+        x: MARGIN_X,
+        y: cardBottomY,
+        width: CONTENT_WIDTH,
+        height: langCardH,
+        radius: CARD_RADIUS,
+        color: COLORS.background,
+        borderColor: COLORS.ringCard,
+        borderWidth: 0.75,
       });
 
-      cursorY = cardBottomY - 8;
+      const headerBottomY = cursorY - cardHeaderH;
+      drawIconBox(MARGIN_X + CARD_PAD_X, headerBottomY + (cardHeaderH - 20) / 2, "languages");
+      currentPage.drawText("Languages", {
+        x: MARGIN_X + CARD_PAD_X + 20 + 7,
+        y: headerBottomY + 14.5,
+        font: sansSemiBold,
+        size: 11,
+        color: COLORS.foreground,
+      });
+      currentPage.drawLine({
+        start: { x: MARGIN_X, y: headerBottomY },
+        end: { x: MARGIN_X + CONTENT_WIDTH, y: headerBottomY },
+        thickness: 0.6,
+        color: COLORS.borderGrid,
+      });
+
+      let rowTopY = headerBottomY - CARD_PAD_Y;
+      for (const row of langRows) {
+        let chipX = MARGIN_X + CARD_PAD_X;
+        const chipY = rowTopY - langPillH;
+
+        for (const pill of row.items) {
+          drawRoundedRect(currentPage, {
+            x: chipX,
+            y: chipY,
+            width: pill.width,
+            height: langPillH,
+            radius: 5.5,
+            color: COLORS.pillBg,
+            borderColor: COLORS.borderGrid,
+            borderWidth: 0.7,
+          });
+          currentPage.drawText(pill.name, {
+            x: chipX + 8.5,
+            y: chipY + 6.8,
+            font: sansMedium,
+            size: 8.6,
+            color: COLORS.foreground,
+          });
+          if (pill.level) {
+            currentPage.drawText(pill.level, {
+              x: chipX + 8.5 + pill.nameW + 6,
+              y: chipY + 6.8,
+              font: sansRegular,
+              size: 7.6,
+              color: COLORS.mutedForeground,
+            });
+          }
+          chipX += pill.width + langGapX;
+        }
+
+        rowTopY = chipY - langGapY;
+      }
+
+      cursorY = cardBottomY;
     }
+
+    advanceCursor(BAND_PAD_Y);
+    if (hasNextBand) {
+      drawBandDivider();
+    }
+    currentBandMuted = false;
   }
 
-  const hasAnySection =
-    vm.experiences.length > 0 ||
-    vm.projects.length > 0 ||
-    vm.education.length > 0 ||
-    vm.languages.length > 0 ||
-    vm.setups.length > 0;
+  // =========================================================================
+  // ASSEMBLE DOCUMENT IN EXACT HTML SECTION ORDER
+  // =========================================================================
+  addNewPage();
 
-  if (!hasAnySection) {
-    currentPage.drawText("No portfolio sections added yet.", {
-      x: MARGIN_X,
-      y: cursorY - 12,
+  const visibleBands: ((muted: boolean, hasNextBand: boolean) => void)[] = [];
+  if (vm.experiences.length > 0) visibleBands.push(renderExperienceBand);
+  if (vm.technologyTotals.length > 0) visibleBands.push(renderTechnologiesBand);
+  if (vm.projects.length > 0) visibleBands.push(renderProjectsBand);
+  if (vm.setups.length > 0) visibleBands.push(renderSetupBand);
+  if (vm.education.length > 0 || vm.languages.length > 0) {
+    visibleBands.push(renderBackgroundBand);
+  }
+
+  renderHeroBand(visibleBands.length > 0);
+
+  if (visibleBands.length === 0) {
+    const emptyMsg = "No portfolio sections added yet.";
+    const emptyW = sansRegular.widthOfTextAtSize(emptyMsg, 9.5);
+    currentPage.drawText(emptyMsg, {
+      x: (PAGE_WIDTH - emptyW) / 2,
+      y: cursorY - 24,
       font: sansRegular,
       size: 9.5,
       color: COLORS.mutedForeground,
     });
+  } else {
+    visibleBands.forEach((renderBand, idx) => {
+      const muted = (idx + 1) % 2 === 1;
+      const hasNextBand = idx < visibleBands.length - 1;
+      renderBand(muted, hasNextBand);
+    });
   }
 
   // =========================================================================
-  // 7. PROJECT MARK WATERMARK ON ALL PAGES
+  // FOOTER ON ALL PAGES (Matches HTML footer)
   // =========================================================================
-  pages.forEach((page) => {
-    const footerBaselineY = 24;
-    const brandPrefix = "/prezent-";
-    const brandSuffix = "me";
-    const prefixW = sansBold.widthOfTextAtSize(brandPrefix, 8);
+  const footerPrefix = "Built with ";
+  const footerBrand = "/prezent-me";
+  const prefixW = sansRegular.widthOfTextAtSize(footerPrefix, 7.8);
+  const brandW = monoRegular.widthOfTextAtSize(footerBrand, 7.8);
+  const footerTotalW = prefixW + brandW;
+  const footerStartX = (PAGE_WIDTH - footerTotalW) / 2;
 
-    page.drawText(brandPrefix, {
-      x: MARGIN_X,
-      y: footerBaselineY,
-      font: sansBold,
-      size: 8,
-      color: COLORS.foreground,
-      opacity: 0.38,
+  pages.forEach((page) => {
+    page.drawLine({
+      start: { x: 0, y: FOOTER_LINE_Y },
+      end: { x: PAGE_WIDTH, y: FOOTER_LINE_Y },
+      thickness: 0.6,
+      color: COLORS.borderGrid,
     });
-    page.drawText(brandSuffix, {
-      x: MARGIN_X + prefixW,
-      y: footerBaselineY,
-      font: sansBold,
-      size: 8,
+
+    page.drawText(footerPrefix, {
+      x: footerStartX,
+      y: 16,
+      font: sansRegular,
+      size: 7.8,
       color: COLORS.mutedForeground,
-      opacity: 0.38,
     });
+    page.drawText(footerBrand, {
+      x: footerStartX + prefixW,
+      y: 16,
+      font: monoRegular,
+      size: 7.8,
+      color: COLORS.mutedForeground,
+    });
+    addLinkAnnotation(page, "https://prezentme.vercel.app", footerStartX, 12, footerTotalW, 14);
   });
 
   return pdfDoc.save();
